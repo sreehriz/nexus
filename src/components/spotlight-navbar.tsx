@@ -14,6 +14,9 @@ export interface SpotlightNavbarProps {
   theme: "light" | "dark";
   onToggleTheme: () => void;
   items?: NavItem[];
+  onViewChange?: (view: "landing" | "signin" | "signup" | "forgot") => void;
+  currentView: string;
+  userName?: string;
 }
 
 export default function SpotlightNavbar({
@@ -26,6 +29,9 @@ export default function SpotlightNavbar({
     { label: "Pricing", href: "#pricing" },
     { label: "About", href: "#about" },
   ],
+  onViewChange,
+  currentView,
+  userName,
 }: SpotlightNavbarProps) {
   const navRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -114,11 +120,22 @@ export default function SpotlightNavbar({
 
   const handleItemClick = (item: NavItem, index: number) => {
     setActiveIndex(index);
-    const targetId = item.href.replace("#", "");
-    const element = document.getElementById(targetId);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-      window.history.pushState(null, "", item.href);
+    if (onViewChange && currentView !== "landing") {
+      onViewChange("landing");
+      setTimeout(() => {
+        const targetId = item.href.replace("#", "");
+        const element = document.getElementById(targetId);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 350);
+    } else {
+      const targetId = item.href.replace("#", "");
+      const element = document.getElementById(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.history.pushState(null, "", item.href);
+      }
     }
   };
 
@@ -136,7 +153,13 @@ export default function SpotlightNavbar({
         
         {/* Left Side: Logo */}
         <div
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          onClick={() => {
+            if (onViewChange) {
+              onViewChange("landing");
+            } else {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
           className="flex items-center gap-2.5 cursor-pointer group"
         >
           <div className="w-9 h-9 rounded-lg bg-theme-text-primary flex items-center justify-center relative overflow-hidden transition-all duration-300 group-hover:scale-105 shadow-[0_4px_12px_rgba(0,0,0,0.12)] dark:shadow-[0_0_15px_rgba(255,255,255,0.2)]">
@@ -212,12 +235,21 @@ export default function SpotlightNavbar({
             )}
           </button>
 
-          <button className="text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary cursor-pointer transition-colors px-3 py-1.5 rounded-lg hover:bg-theme-text-secondary/10 dark:hover:bg-theme-text-secondary/5">
-            Sign In
-          </button>
+          {userName ? (
+            <span className="text-xs font-mono font-bold tracking-wider uppercase text-theme-text-primary border border-theme-border/60 rounded-lg px-3 py-1.5 bg-theme-text-primary/5 select-none">
+              ● {userName}
+            </span>
+          ) : (
+            <button
+              onClick={() => onViewChange?.("signin")}
+              className="text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary cursor-pointer transition-colors px-3 py-1.5 rounded-lg hover:bg-theme-text-secondary/10 dark:hover:bg-theme-text-secondary/5"
+            >
+              Sign In
+            </button>
+          )}
 
           <button
-            onClick={onStartMeeting}
+            onClick={() => onViewChange ? onViewChange("signup") : onStartMeeting()}
             className="cursor-pointer text-xs font-semibold tracking-wider uppercase text-theme-bg bg-theme-text-primary hover:opacity-90 active:scale-[0.98] transition-all px-5 py-2.5 rounded-lg border border-transparent shadow-[0_8px_20px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_12px_rgba(255,255,255,0.08)]"
           >
             Get Started
@@ -275,13 +307,29 @@ export default function SpotlightNavbar({
             </div>
 
             <div className="mt-auto flex flex-col gap-4">
-              <button className="w-full text-center text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary py-3 border border-theme-border/60 rounded-xl">
-                Sign In
-              </button>
+              {userName ? (
+                <div className="w-full text-center text-xs font-mono font-bold tracking-widest text-theme-text-primary py-3.5 border border-theme-border/60 rounded-xl bg-theme-text-primary/5 select-none">
+                  ● ACTIVE NODE: {userName}
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onViewChange?.("signin");
+                  }}
+                  className="w-full text-center text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary py-3 border border-theme-border/60 rounded-xl"
+                >
+                  Sign In
+                </button>
+              )}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
-                  onStartMeeting();
+                  if (onViewChange) {
+                    onViewChange("signup");
+                  } else {
+                    onStartMeeting();
+                  }
                 }}
                 className="w-full text-center text-sm font-semibold text-theme-bg bg-theme-text-primary hover:opacity-90 py-3.5 rounded-xl shadow-lg"
               >

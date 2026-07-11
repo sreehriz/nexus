@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, LogIn, Sparkles, AlertCircle, Check, Users, ShieldCheck, Laptop } from "lucide-react";
+import { X, LogIn, Sparkles, AlertCircle, Check, Users, ShieldCheck, Laptop, Bell } from "lucide-react";
 import SpotlightNavbar from "./components/spotlight-navbar";
 import CinematicBackground from "./components/CinematicBackground";
 import HeroLeft from "./components/HeroLeft";
 import TestimonialsCard from "./components/TestimonialsCard";
+import SignInPage from "./components/auth/SignInPage";
+import SignUpPage from "./components/auth/SignUpPage";
+import ForgotPasswordPage from "./components/auth/ForgotPasswordPage";
+import DashboardMockup from "./components/DashboardMockup";
 
 type ConnectionStatus = "idle" | "connecting" | "connected";
 
@@ -17,7 +21,7 @@ const containerVariants = {
       delayChildren: 0.1,
     },
   },
-};
+} as const;
 
 const cardVariants = {
   hidden: { opacity: 0, y: 40 },
@@ -25,13 +29,13 @@ const cardVariants = {
     opacity: 1,
     y: 0,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 85,
       damping: 15,
       duration: 0.7,
     },
   },
-};
+} as const;
 
 export default function App() {
   const [theme, setTheme] = useState<"light" | "dark">(
@@ -42,6 +46,19 @@ export default function App() {
   const [roomCode, setRoomCode] = useState("nex-794-slv");
   const [customName, setCustomName] = useState("");
   const [joinError, setJoinError] = useState("");
+
+  const [view, setView] = useState<"landing" | "signin" | "signup" | "forgot">("landing");
+  const [user, setUser] = useState<{ name: string } | null>(null);
+  const [authNotification, setAuthNotification] = useState<string | null>(null);
+
+  const handleAuthSuccess = (name: string) => {
+    setUser({ name });
+    setView("landing");
+    setAuthNotification(`Welcome back to Nexus, ${name}`);
+    setTimeout(() => {
+      setAuthNotification(null);
+    }, 4000);
+  };
 
   // Sync theme to DOM html class and persist
   useEffect(() => {
@@ -103,6 +120,9 @@ export default function App() {
         onStartMeeting={handleStartMeeting}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        onViewChange={setView}
+        currentView={view}
+        userName={user?.name}
       />
 
       {/* 3. Connection Status Overlay Tag */}
@@ -138,7 +158,39 @@ export default function App() {
       </AnimatePresence>
 
       {/* 4. Main Centered Content Stage */}
-      <main className="relative z-10 flex-1 flex flex-col items-center">
+      <main className="relative z-10 flex-1 flex flex-col items-center w-full">
+        
+        {/* Floating Success Banner */}
+        <AnimatePresence>
+          {authNotification && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed top-24 right-6 z-50 glass-panel-heavy p-4 rounded-xl border border-theme-border flex items-center gap-2.5 shadow-xl text-xs text-theme-text-primary"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-500" />
+              <div className="flex-1 font-semibold">{authNotification}</div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence mode="wait">
+          {view === "landing" && (
+            <motion.div
+              key="landing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.45 }}
+              className="w-full flex flex-col items-center"
+            >
+              {connectionStatus === "connected" ? (
+                <div className="w-full max-w-6xl mx-auto px-6 py-12 md:py-24 animate-fade-in">
+                  <DashboardMockup onLeave={() => setConnectionStatus("idle")} />
+                </div>
+              ) : (
+                <>
         
         {/* HERO SECTION */}
         <section id="hero" className="w-full max-w-4xl mx-auto min-h-[calc(100vh-120px)] flex flex-col items-center justify-center text-center px-6 md:px-12 pt-[120px] pb-16 sm:pb-24">
@@ -445,6 +497,50 @@ export default function App() {
           </motion.div>
         </section>
 
+                </>
+              )}
+            </motion.div>
+          )}
+
+          {view === "signin" && (
+            <motion.div
+              key="signin"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="w-full flex justify-center"
+            >
+              <SignInPage onNavigate={setView} onSuccess={handleAuthSuccess} />
+            </motion.div>
+          )}
+
+          {view === "signup" && (
+            <motion.div
+              key="signup"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="w-full flex justify-center"
+            >
+              <SignUpPage onNavigate={setView} onSuccess={handleAuthSuccess} />
+            </motion.div>
+          )}
+
+          {view === "forgot" && (
+            <motion.div
+              key="forgot"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="w-full flex justify-center"
+            >
+              <ForgotPasswordPage onNavigate={setView} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* 4. PREMIUM FOOTER SECTION */}
