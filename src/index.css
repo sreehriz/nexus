@@ -1,0 +1,121 @@
+@import url('https://db.onlinewebfonts.com/c/6a56e5df33fa58a43f80c6579cf0fc8a?family=Azonix');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=panchang@200,300,400,500,600,700,800&display=swap');
+@import "tailwindcss";
+
+:root {
+  --theme-bg: #0B0B0B;
+  --theme-surface: #141414;
+  --theme-secondary: #1C1C1C;
+  --theme-elevated: #242424;
+  --theme-border: rgba(255, 255, 255, 0.12);
+  --theme-primary: #FFFFFF;
+  --theme-text-primary: #F5F5F5;
+  --theme-text-secondary: #D3D3D3;
+  --theme-text-muted: #A3A3A3;
+  --theme-glass-bg: rgba(255, 255, 255, 0.05);
+  --theme-glass-border: rgba(255, 255, 255, 0.1);
+  --theme-glass-heavy: rgba(20, 20, 20, 0.85);
+  --theme-glass-heavy-border: rgba(255, 255, 255, 0.15);
+  --theme-radial-glow: radial-gradient(circle at center, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+}
+
+html.light {
+  --theme-bg: #EAEAEA;
+  --theme-surface: #FFFFFF;
+  --theme-secondary: #F2F2F2;
+  --theme-elevated: #FAFAFA;
+  --theme-border: rgba(0, 0, 0, 0.12);
+  --theme-primary: #111111;
+  --theme-text-primary: #0B0B0B;
+  --theme-text-secondary: #333333;
+  --theme-text-muted: #666666;
+  --theme-glass-bg: rgba(255, 255, 255, 0.65);
+  --theme-glass-border: rgba(0, 0, 0, 0.1);
+  --theme-glass-heavy: rgba(255, 255, 255, 0.92);
+  --theme-glass-heavy-border: rgba(0, 0, 0, 0.14);
+  --theme-radial-glow: radial-gradient(circle at center, rgba(11, 11, 11, 0.04) 0%, transparent 70%);
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Azonix", sans-serif;
+  --font-panchang: "ROSNOC Panchang", "Panchang", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-theme-bg: var(--theme-bg);
+  --color-theme-surface: var(--theme-surface);
+  --color-theme-secondary: var(--theme-secondary);
+  --color-theme-elevated: var(--theme-elevated);
+  --color-theme-border: var(--theme-border);
+  --color-theme-primary: var(--theme-primary);
+  --color-theme-text-secondary: var(--theme-text-secondary);
+  --color-theme-text-primary: var(--theme-text-primary);
+  --color-theme-text-muted: var(--theme-text-muted);
+  --color-theme-glass-bg: var(--theme-glass-bg);
+  --color-theme-glass-border: var(--theme-glass-border);
+  --color-theme-glass-heavy: var(--theme-glass-heavy);
+  --color-theme-glass-heavy-border: var(--theme-glass-heavy-border);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--theme-bg);
+    color: var(--theme-text-primary);
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+    transition: background-color 400ms cubic-bezier(0.4, 0, 0.2, 1), color 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  /* Custom scrollbar matching Nothing / Linear aesthetic */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--theme-bg);
+    transition: background-color 400ms;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--theme-border);
+    border-radius: 3px;
+    transition: background-color 400ms;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-text-secondary);
+  }
+}
+
+/* Dynamic glassmorphism classes */
+.glass-panel {
+  background: var(--theme-glass-bg);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  border: 1px solid var(--theme-glass-border);
+  transition: background-color 400ms, border-color 400ms;
+}
+
+.glass-panel-heavy {
+  background: var(--theme-glass-heavy);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--theme-glass-heavy-border);
+  transition: background-color 400ms, border-color 400ms;
+}
+
+.glass-pill {
+  background: var(--theme-glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--theme-glass-border);
+  transition: background-color 400ms, border-color 400ms;
+}
+
+/* Subtly shimmering radial light effect */
+.radial-glow {
+  background: var(--theme-radial-glow);
+  transition: background 400ms;
+}
+

@@ -1,0 +1,6 @@
+{
+  "name": "Nexus",
+  "description": "A premium, futuristic video conferencing platform featuring high-fidelity audio, immersive screen sharing, and real-time collaboration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
