@@ -18,8 +18,11 @@ import {
   Tv,
   Maximize2,
   X,
-  Bell
+  Bell,
+  AlertCircle,
+  Cpu
 } from "lucide-react";
+import { useDashboardData } from "../hooks/useDashboardData";
 
 interface ChatMessage {
   id: string;
@@ -41,6 +44,8 @@ interface Participant {
 }
 
 export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
+  const { data: metrics, loading, error } = useDashboardData();
+
   // --- Meeting States ---
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCamOn, setIsCamOn] = useState(true);
@@ -63,7 +68,6 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
   // --- Caption Engine ---
   const [activeCaption, setActiveCaption] = useState("");
   const [captionCharIdx, setCaptionCharIdx] = useState(0);
-  const captionIntervalRef = useRef<any>(null);
 
   const dialogSequence = [
     { speaker: "sophia", text: "Nexus utilizes end-to-end vector quantization to compress streaming bandwidth while maintaining 4K resolution." },
@@ -256,6 +260,112 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
     const p = participants.find((part) => part.id === activeSpeakerId);
     return p ? p.name : "System";
   };
+
+  // --- Loader Skeleton Screen ---
+  if (loading) {
+    return (
+      <div className="relative w-full h-[600px] max-w-5xl mx-auto glass-panel rounded-2xl border border-theme-glass-border overflow-hidden flex flex-col backdrop-blur-md animate-pulse">
+        {/* Skeleton Top Header */}
+        <div className="px-5 py-4 border-b border-theme-border/30 flex items-center justify-between bg-theme-bg/25">
+          <div className="flex items-center gap-3">
+            <div className="w-16 h-5 rounded bg-theme-text-primary/10" />
+            <div className="w-24 h-5 rounded bg-theme-text-primary/10 border border-theme-border/20" />
+          </div>
+          <div className="w-36 h-4 rounded bg-theme-text-primary/10 hidden md:block" />
+          <div className="w-20 h-5 rounded bg-theme-text-primary/10" />
+        </div>
+
+        {/* Skeleton Middle Layout */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 min-h-[380px]">
+          {/* Main Video Arena Skeleton */}
+          <div className="lg:col-span-3 p-4 flex flex-col gap-4">
+            <div className="flex-1 rounded-xl border border-theme-border/20 bg-theme-surface/50 relative overflow-hidden flex flex-col items-center justify-center gap-4">
+              <div className="w-24 h-24 rounded-full bg-theme-text-primary/10" />
+              <div className="w-32 h-5 rounded bg-theme-text-primary/10" />
+              <div className="w-20 h-3 rounded bg-theme-text-primary/5" />
+              <div className="flex items-center gap-1.5 mt-2 h-6">
+                {[...Array(9)].map((_, i) => (
+                  <div key={i} className="w-1 h-8 bg-theme-text-primary/10 rounded-full" />
+                ))}
+              </div>
+            </div>
+            {/* Captions Skeleton */}
+            <div className="glass-panel rounded-xl p-4 min-h-[72px] bg-theme-surface/30">
+              <div className="w-12 h-3 rounded bg-theme-text-primary/10 mb-2" />
+              <div className="w-full h-3 rounded bg-theme-text-primary/5" />
+            </div>
+          </div>
+
+          {/* Sidebar Skeleton */}
+          <div className="border-t lg:border-t-0 lg:border-l border-theme-border/20 flex flex-col bg-theme-bg/10 p-4 gap-5">
+            {/* Diagnostics Widget Skeleton */}
+            <div className="flex flex-col gap-2.5">
+              <div className="w-28 h-3 rounded bg-theme-text-primary/10" />
+              <div className="grid grid-cols-3 gap-2">
+                <div className="h-12 rounded bg-theme-text-primary/5 border border-theme-border/30" />
+                <div className="h-12 rounded bg-theme-text-primary/5 border border-theme-border/30" />
+                <div className="h-12 rounded bg-theme-text-primary/5 border border-theme-border/30" />
+              </div>
+            </div>
+
+            {/* Participants List Skeleton */}
+            <div className="flex flex-col gap-2.5">
+              <div className="w-24 h-3 rounded bg-theme-text-primary/10" />
+              <div className="space-y-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-theme-text-primary/10" />
+                    <div className="flex-1 space-y-1">
+                      <div className="w-20 h-3 rounded bg-theme-text-primary/10" />
+                      <div className="w-12 h-2 rounded bg-theme-text-primary/5" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Chat Frame Skeleton */}
+            <div className="flex-1 flex flex-col gap-2.5 mt-2">
+              <div className="w-24 h-3 rounded bg-theme-text-primary/10" />
+              <div className="flex-1 bg-theme-text-primary/5 border border-theme-border/20 rounded-xl" />
+            </div>
+          </div>
+        </div>
+
+        {/* Skeleton Bottom Toolbar */}
+        <div className="px-6 py-4 border-t border-theme-border/30 flex items-center justify-between bg-theme-bg/40">
+          <div className="w-32 h-4 rounded bg-theme-text-primary/10 hidden sm:block" />
+          <div className="flex gap-3.5 mx-auto sm:mx-0">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="w-10 h-10 rounded-full bg-theme-text-primary/10" />
+            ))}
+          </div>
+          <div className="w-10 h-10 rounded-full bg-theme-text-primary/10 hidden sm:block" />
+        </div>
+      </div>
+    );
+  }
+
+  // --- Fallback Error Boundary Screen ---
+  if (error) {
+    return (
+      <div className="relative w-full h-[350px] max-w-5xl mx-auto glass-panel rounded-2xl border border-red-500/25 p-8 flex flex-col items-center justify-center text-center gap-4 bg-red-500/5 text-theme-text-primary backdrop-blur-md">
+        <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <div>
+          <h3 className="font-display font-semibold text-lg text-red-200">Database Handshake Failed</h3>
+          <p className="text-xs text-theme-text-muted mt-1 max-w-md mx-auto">{error}</p>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-2 px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-theme-bg bg-theme-text-primary hover:opacity-90 rounded-xl transition-all cursor-pointer outline-none shadow-md hover:shadow-lg"
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-full max-w-5xl mx-auto glass-panel rounded-2xl border border-theme-glass-border shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col backdrop-blur-md">
@@ -511,9 +621,53 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
           </div>
         </div>
 
-        {/* --- Sidebar (Participant list & Live Chat) (Grid Col 1) --- */}
+        {/* --- Sidebar (Participant list, Diagnostics, & Live Chat) (Grid Col 1) --- */}
         <div className="border-t lg:border-t-0 lg:border-l border-theme-border/20 flex flex-col max-h-[640px] bg-theme-bg/10">
           
+          {/* Section: Node Diagnostics (Supabase Connected telemetry metrics) */}
+          <div className="p-4 border-b border-theme-border/20 bg-theme-bg/5 flex flex-col gap-3">
+            <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-theme-text-muted select-none">
+              <span className="flex items-center gap-1.5">
+                <Cpu className="w-3.5 h-3.5" />
+                <span>Node Diagnostics</span>
+              </span>
+              <span className="text-[8px] text-emerald-500 font-bold tracking-wider">SECURE</span>
+            </div>
+
+            {/* Stats Metrics Grid */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="glass-panel p-2.5 rounded-xl text-center flex flex-col gap-0.5 border-transparent bg-theme-bg/20 select-none">
+                <span className="text-[8px] font-mono text-theme-text-muted">PROJECTS</span>
+                <span className="text-xs font-semibold text-theme-text-primary">{metrics?.total_projects ?? 0}</span>
+              </div>
+              <div className="glass-panel p-2.5 rounded-xl text-center flex flex-col gap-0.5 border-transparent bg-theme-bg/20 select-none">
+                <span className="text-[8px] font-mono text-theme-text-muted">TASKS</span>
+                <span className="text-xs font-semibold text-theme-text-primary">{metrics?.active_tasks ?? 0}</span>
+              </div>
+              <div className="glass-panel p-2.5 rounded-xl text-center flex flex-col gap-0.5 border-transparent bg-theme-bg/20 select-none">
+                <span className="text-[8px] font-mono text-theme-text-muted">USAGE</span>
+                <span className="text-xs font-semibold text-theme-text-primary">{metrics?.monthly_usage ?? 0}h</span>
+              </div>
+            </div>
+
+            {/* Recent Activity logs feed */}
+            {metrics?.recent_activity && metrics.recent_activity.length > 0 && (
+              <div className="mt-1 flex flex-col gap-1.5 border-t border-theme-border/10 pt-2">
+                <span className="text-[9px] font-mono uppercase tracking-wider text-theme-text-muted select-none">
+                  Recent Workspace Logs
+                </span>
+                <div className="space-y-1 max-h-[60px] overflow-y-auto pr-1">
+                  {metrics.recent_activity.map((log, i) => (
+                    <div key={i} className="flex justify-between items-center text-[9px] font-mono text-theme-text-secondary leading-normal select-none">
+                      <span className="truncate max-w-[125px]">{log.event}</span>
+                      <span className="text-theme-text-muted shrink-0 text-[8px]">{log.time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Section: Participants list */}
           <div className="p-4 border-b border-theme-border/20 flex flex-col gap-3">
             <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-theme-text-muted">
@@ -523,7 +677,7 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
               </span>
               <button
                 onClick={() => triggerNotification("Participant invite link copied")}
-                className="text-[10px] text-theme-text-secondary hover:text-theme-text-primary cursor-pointer font-medium"
+                className="text-[10px] text-theme-text-secondary hover:text-theme-text-primary cursor-pointer font-medium outline-none"
               >
                 + Invite
               </button>
@@ -551,7 +705,7 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
                       <span className="text-xs font-semibold text-theme-text-primary truncate max-w-[100px]">
                         {p.name}
                       </span>
-                      <span className="text-[9px] text-theme-text-muted">
+                      <span className="text-[9px] text-theme-text-muted font-mono leading-none mt-0.5">
                         {p.role}
                       </span>
                     </div>
@@ -582,7 +736,7 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
           </div>
 
           {/* Section: Live Chat Preview & Input */}
-          <div className="flex-1 p-4 flex flex-col gap-3 min-h-[200px] overflow-hidden">
+          <div className="flex-1 p-4 flex flex-col gap-3 min-h-[180px] overflow-hidden">
             <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-theme-text-muted">
               <span className="flex items-center gap-1.5">
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -592,7 +746,7 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
             </div>
 
             {/* Chat message streams */}
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 max-h-[220px] md:max-h-[300px]">
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 max-h-[180px] md:max-h-[220px]">
               {chatMessages.map((msg) => (
                 <div
                   key={msg.id}
@@ -623,11 +777,11 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
                 value={newMsgText}
                 onChange={(e) => setNewMsgText(e.target.value)}
                 placeholder="Type secure message..."
-                className="flex-1 bg-theme-text-primary/5 hover:bg-theme-text-primary/8 focus:bg-theme-text-primary/10 border border-theme-border focus:border-theme-text-primary/30 rounded-lg px-3 py-2 text-xs text-theme-text-primary placeholder-theme-text-muted/40 outline-none transition-colors"
+                className="flex-1 bg-theme-text-primary/5 hover:bg-theme-text-primary/8 focus:bg-theme-text-primary/10 border border-theme-border/45 focus:border-theme-text-primary/30 rounded-lg px-3 py-2 text-xs text-theme-text-primary placeholder-theme-text-muted/40 outline-none transition-colors"
               />
               <button
                 type="submit"
-                className="p-2 bg-theme-text-primary hover:opacity-90 text-theme-bg rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+                className="p-2 bg-theme-text-primary hover:opacity-90 text-theme-bg rounded-lg transition-colors flex items-center justify-center cursor-pointer outline-none"
               >
                 <Send className="w-3.5 h-3.5" />
               </button>
@@ -650,7 +804,7 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
               setIsMicOn(!isMicOn);
               triggerNotification(isMicOn ? "Microphone muted" : "Microphone active");
             }}
-            className={`p-3.5 rounded-full border cursor-pointer transition-all duration-300 ${
+            className={`p-3.5 rounded-full border cursor-pointer transition-all duration-300 outline-none ${
               isMicOn
                 ? "bg-theme-text-primary/5 border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10"
                 : "bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20"
@@ -666,7 +820,7 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
               setIsCamOn(!isCamOn);
               triggerNotification(isCamOn ? "Camera feed disabled" : "Camera feed active");
             }}
-            className={`p-3.5 rounded-full border cursor-pointer transition-all duration-300 ${
+            className={`p-3.5 rounded-full border cursor-pointer transition-all duration-300 outline-none ${
               isCamOn
                 ? "bg-theme-text-primary/5 border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10"
                 : "bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20"
@@ -685,7 +839,7 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
               }
               triggerNotification(isScreenSharing ? "Screen sharing terminated" : "Sharing screen stream to workspace");
             }}
-            className={`p-3.5 rounded-full border cursor-pointer transition-all duration-300 ${
+            className={`p-3.5 rounded-full border cursor-pointer transition-all duration-300 outline-none ${
               isScreenSharing
                 ? "bg-theme-text-primary text-theme-bg border-transparent shadow-[0_0_15px_rgba(255,255,255,0.3)]"
                 : "bg-theme-text-primary/5 border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10"
@@ -701,7 +855,7 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
               setIsRecording(!isRecording);
               triggerNotification(isRecording ? "Recording archived" : "Live stream recording started");
             }}
-            className={`p-3.5 rounded-full border cursor-pointer transition-all duration-300 ${
+            className={`p-3.5 rounded-full border cursor-pointer transition-all duration-300 outline-none ${
               isRecording
                 ? "bg-red-500 text-white border-transparent animate-pulse"
                 : "bg-theme-text-primary/5 border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10"
@@ -716,7 +870,7 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
           {/* Leave Button */}
           <button
             onClick={onLeave}
-            className="cursor-pointer px-4 py-2.5 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 text-[10px] font-bold uppercase tracking-widest transition-all duration-300 hover:scale-102 active:scale-[0.98]"
+            className="cursor-pointer px-4 py-2.5 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 text-[10px] font-bold uppercase tracking-widest transition-all duration-300 hover:scale-102 active:scale-[0.98] outline-none"
           >
             Leave
           </button>
@@ -725,7 +879,7 @@ export default function DashboardMockup({ onLeave }: { onLeave?: () => void }) {
         {/* Right side options */}
         <button
           onClick={() => triggerNotification("Advanced stream options opened")}
-          className="hidden sm:flex p-2.5 rounded-full bg-theme-text-primary/5 border border-theme-border text-theme-text-secondary hover:text-theme-text-primary cursor-pointer transition-colors duration-300"
+          className="hidden sm:flex p-2.5 rounded-full bg-theme-text-primary/5 border border-theme-border text-theme-text-secondary hover:text-theme-text-primary cursor-pointer transition-colors duration-300 outline-none"
         >
           <MoreVertical className="w-4 h-4" />
         </button>
