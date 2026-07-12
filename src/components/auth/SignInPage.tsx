@@ -8,6 +8,8 @@ import AuthCard from "./AuthCard";
 import AuthInput from "./AuthInput";
 import AuthButton from "./AuthButton";
 import SocialLoginButton from "./SocialLoginButton";
+import { useAuth } from "../../context/AuthContext";
+import { supabase } from "../../lib/supabaseClient";
 
 const signInSchema = z.object({
   email: z
@@ -31,6 +33,7 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const { login } = useAuth();
 
   const {
     register,
@@ -45,21 +48,49 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
     setErrorMessage("");
     setSuccessMessage("");
 
-    // Simulate backend validation request
-    setTimeout(() => {
-      if (data.email.toLowerCase() === "error@nexus.com") {
+    try {
+      const { error } = await login(data.email, data.password);
+
+      if (error) {
         setLoading(false);
-        setErrorMessage("Invalid email or password");
+        setErrorMessage(error.message || "Invalid email or password");
       } else {
         setSuccessMessage("Welcome back to Nexus");
+        
+        // Retrieve fresh user info to get metadata
+        const { data: { user } } = await supabase.auth.getUser();
+        const displayName = user?.user_metadata?.fullName || user?.user_metadata?.username || data.email.split("@")[0];
+
         setTimeout(() => {
           setLoading(false);
-          // Split email prefix for display if name is not set
-          const derivedName = data.email.split("@")[0];
-          onSuccess(derivedName.charAt(0).toUpperCase() + derivedName.slice(1));
+          onSuccess(displayName.charAt(0).toUpperCase() + displayName.slice(1));
         }, 1200);
       }
-    }, 1800);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(err.message || "An unexpected error occurred during authorization.");
+    }
+  };
+
+  const handleOAuthLogin = async (provider: "google" | "github" | "microsoft" | "apple") => {
+    setLoading(true);
+    setErrorMessage("");
+    try {
+      const supabaseProvider = provider === "microsoft" ? "azure" : provider;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: supabaseProvider as any,
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) {
+        setLoading(false);
+        setErrorMessage(error.message);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(err.message || `Failed to initiate connection with ${provider}.`);
+    }
   };
 
   return (
@@ -317,13 +348,7 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
             {/* Primary Social Integration */}
             <SocialLoginButton
               provider="google"
-              onClick={() => {
-                setLoading(true);
-                setTimeout(() => {
-                  setLoading(false);
-                  onSuccess("Google User");
-                }, 1500);
-              }}
+              onClick={() => handleOAuthLogin("google")}
               disabled={loading || successMessage !== ""}
             />
             
@@ -332,37 +357,19 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
               <SocialLoginButton
                 provider="github"
                 className="flex-1 py-2.5"
-                onClick={() => {
-                  setLoading(true);
-                  setTimeout(() => {
-                    setLoading(false);
-                    onSuccess("GitHub User");
-                  }, 1500);
-                }}
+                onClick={() => handleOAuthLogin("github")}
                 disabled={loading || successMessage !== ""}
               />
               <SocialLoginButton
                 provider="microsoft"
                 className="flex-1 py-2.5"
-                onClick={() => {
-                  setLoading(true);
-                  setTimeout(() => {
-                    setLoading(false);
-                    onSuccess("Microsoft User");
-                  }, 1500);
-                }}
+                onClick={() => handleOAuthLogin("microsoft")}
                 disabled={loading || successMessage !== ""}
               />
               <SocialLoginButton
                 provider="apple"
                 className="flex-1 py-2.5"
-                onClick={() => {
-                  setLoading(true);
-                  setTimeout(() => {
-                    setLoading(false);
-                    onSuccess("Apple User");
-                  }, 1500);
-                }}
+                onClick={() => handleOAuthLogin("apple")}
                 disabled={loading || successMessage !== ""}
               />
             </div>

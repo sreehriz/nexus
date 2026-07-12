@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import AuthCard from "./AuthCard";
 import AuthInput from "./AuthInput";
 import AuthButton from "./AuthButton";
+import { useAuth } from "../../context/AuthContext";
 
 const forgotSchema = z.object({
   email: z
@@ -25,6 +26,7 @@ export default function ForgotPasswordPage({ onNavigate }: ForgotPasswordPagePro
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [success, setSuccess] = useState(false);
+  const { resetPassword } = useAuth();
 
   const {
     register,
@@ -38,15 +40,19 @@ export default function ForgotPasswordPage({ onNavigate }: ForgotPasswordPagePro
     setLoading(true);
     setErrorMessage("");
 
-    // Simulate recovery link dispatch
-    setTimeout(() => {
-      setLoading(false);
-      if (data.email.toLowerCase() === "error@nexus.com") {
-        setErrorMessage("Node address not registered in our matrix. Please verify the email.");
+    try {
+      const { error } = await resetPassword(data.email);
+      if (error) {
+        setLoading(false);
+        setErrorMessage(error.message || "Failed to dispatch reset code. Please check email address.");
       } else {
+        setLoading(false);
         setSuccess(true);
       }
-    }, 1800);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(err.message || "An unexpected error occurred during password recovery dispatch.");
+    }
   };
 
   return (
@@ -279,4 +285,3 @@ export default function ForgotPasswordPage({ onNavigate }: ForgotPasswordPagePro
     </div>
   );
 }
-

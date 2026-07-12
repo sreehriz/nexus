@@ -17,6 +17,7 @@ export interface SpotlightNavbarProps {
   onViewChange?: (view: "landing" | "signin" | "signup" | "forgot") => void;
   currentView: string;
   userName?: string;
+  onLogout?: () => void;
 }
 
 export default function SpotlightNavbar({
@@ -32,6 +33,7 @@ export default function SpotlightNavbar({
   onViewChange,
   currentView,
   userName,
+  onLogout,
 }: SpotlightNavbarProps) {
   const navRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -236,9 +238,13 @@ export default function SpotlightNavbar({
           </button>
 
           {userName ? (
-            <span className="text-xs font-mono font-bold tracking-wider uppercase text-theme-text-primary border border-theme-border/60 rounded-lg px-3 py-1.5 bg-theme-text-primary/5 select-none">
+            <button
+              onClick={onLogout}
+              className="text-xs font-mono font-bold tracking-wider uppercase text-theme-text-primary border border-theme-border/60 rounded-lg px-3 py-1.5 bg-theme-text-primary/5 hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400 transition-all duration-300 cursor-pointer select-none outline-none"
+              title="Click to Sign Out"
+            >
               ● {userName}
-            </span>
+            </button>
           ) : (
             <button
               onClick={() => onViewChange?.("signin")}
@@ -308,9 +314,15 @@ export default function SpotlightNavbar({
 
             <div className="mt-auto flex flex-col gap-4">
               {userName ? (
-                <div className="w-full text-center text-xs font-mono font-bold tracking-widest text-theme-text-primary py-3.5 border border-theme-border/60 rounded-xl bg-theme-text-primary/5 select-none">
-                  ● ACTIVE NODE: {userName}
-                </div>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onLogout?.();
+                  }}
+                  className="w-full text-center text-xs font-mono font-bold tracking-widest text-theme-text-primary py-3.5 border border-theme-border/60 rounded-xl bg-theme-text-primary/5 hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer select-none outline-none"
+                >
+                  ● ACTIVE NODE: {userName} (SIGN OUT)
+                </button>
               ) : (
                 <button
                   onClick={() => {

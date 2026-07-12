@@ -8,6 +8,8 @@ import AuthCard from "./AuthCard";
 import AuthInput from "./AuthInput";
 import AuthButton from "./AuthButton";
 import SocialLoginButton from "./SocialLoginButton";
+import { useAuth } from "../../context/AuthContext";
+import { supabase } from "../../lib/supabaseClient";
 
 const signUpSchema = z.object({
   fullName: z.string().min(1, "Please enter your full name"),
@@ -70,6 +72,7 @@ export default function SignUpPage({ onNavigate, onSuccess }: SignUpPageProps) {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [selectedUserType, setSelectedUserType] = useState("individual");
   const [errorMessage, setErrorMessage] = useState("");
+  const { signUp } = useAuth();
 
   const {
     register,
@@ -123,23 +126,51 @@ export default function SignUpPage({ onNavigate, onSuccess }: SignUpPageProps) {
     setErrorMessage("");
 
     const data = getValues();
-    const payload = {
-      ...data,
+    const metadata = {
+      fullName: data.fullName,
+      username: data.username,
       avatar: selectedAvatar === "custom" ? customAvatar : selectedAvatar,
       interests: selectedInterests,
       userType: selectedUserType,
     };
 
-    // Simulate database write
-    setTimeout(() => {
-      setLoading(false);
-      if (data.email.toLowerCase() === "error@nexus.com") {
-        setErrorMessage("This email address is already in use by another node.");
-        setStep(1); // Return to step 1 to correct input
+    try {
+      const { error } = await signUp(data.email, data.password, metadata);
+
+      if (error) {
+        setLoading(false);
+        setErrorMessage(error.message || "Failed to create account.");
+        setStep(1); // Return to Step 1 to correct fields
       } else {
+        setLoading(false);
         onSuccess(data.fullName);
       }
-    }, 2000);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(err.message || "An unexpected error occurred during node activation.");
+      setStep(1);
+    }
+  };
+
+  const handleOAuthSignUp = async (provider: "google" | "github" | "microsoft" | "apple") => {
+    setLoading(true);
+    setErrorMessage("");
+    try {
+      const supabaseProvider = provider === "microsoft" ? "azure" : provider;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: supabaseProvider as any,
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) {
+        setLoading(false);
+        setErrorMessage(error.message);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(err.message || `Failed to initiate sign-up handshake with ${provider}.`);
+    }
   };
 
   const currentAvatarGrad = PRESET_AVATARS.find((a) => a.id === selectedAvatar)?.gradient || "from-theme-surface to-theme-secondary";
@@ -401,50 +432,26 @@ export default function SignUpPage({ onNavigate, onSuccess }: SignUpPageProps) {
                 <div className="flex flex-col gap-3">
                   <SocialLoginButton
                     provider="google"
-                    onClick={() => {
-                      setLoading(true);
-                      setTimeout(() => {
-                        setLoading(false);
-                        onSuccess("Google User");
-                      }, 1500);
-                    }}
+                    onClick={() => handleOAuthSignUp("google")}
                     disabled={loading}
                   />
                   <div className="flex gap-3">
                     <SocialLoginButton
                       provider="github"
                       className="flex-1 py-2.5"
-                      onClick={() => {
-                        setLoading(true);
-                        setTimeout(() => {
-                          setLoading(false);
-                          onSuccess("GitHub User");
-                        }, 1500);
-                      }}
+                      onClick={() => handleOAuthSignUp("github")}
                       disabled={loading}
                     />
                     <SocialLoginButton
                       provider="microsoft"
                       className="flex-1 py-2.5"
-                      onClick={() => {
-                        setLoading(true);
-                        setTimeout(() => {
-                          setLoading(false);
-                          onSuccess("Microsoft User");
-                        }, 1500);
-                      }}
+                      onClick={() => handleOAuthSignUp("microsoft")}
                       disabled={loading}
                     />
                     <SocialLoginButton
                       provider="apple"
                       className="flex-1 py-2.5"
-                      onClick={() => {
-                        setLoading(true);
-                        setTimeout(() => {
-                          setLoading(false);
-                          onSuccess("Apple User");
-                        }, 1500);
-                      }}
+                      onClick={() => handleOAuthSignUp("apple")}
                       disabled={loading}
                     />
                   </div>
@@ -631,4 +638,3 @@ export default function SignUpPage({ onNavigate, onSuccess }: SignUpPageProps) {
     </div>
   );
 }
-

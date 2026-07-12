@@ -9,6 +9,8 @@ import SignInPage from "./components/auth/SignInPage";
 import SignUpPage from "./components/auth/SignUpPage";
 import ForgotPasswordPage from "./components/auth/ForgotPasswordPage";
 import DashboardMockup from "./components/DashboardMockup";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 type ConnectionStatus = "idle" | "connecting" | "connected";
 
@@ -37,7 +39,7 @@ const cardVariants = {
   },
 } as const;
 
-export default function App() {
+function AppContent() {
   const [theme, setTheme] = useState<"light" | "dark">(
     () => (localStorage.getItem("nexus-theme") as "light" | "dark") || (localStorage.getItem("novacall-theme") as "light" | "dark") || "dark"
   );
@@ -48,13 +50,23 @@ export default function App() {
   const [joinError, setJoinError] = useState("");
 
   const [view, setView] = useState<"landing" | "signin" | "signup" | "forgot">("landing");
-  const [user, setUser] = useState<{ name: string } | null>(null);
   const [authNotification, setAuthNotification] = useState<string | null>(null);
 
+  const { user, logout } = useAuth();
+  const userName = user?.user_metadata?.fullName || user?.user_metadata?.username || user?.email?.split("@")[0];
+
   const handleAuthSuccess = (name: string) => {
-    setUser({ name });
     setView("landing");
     setAuthNotification(`Welcome back to Nexus, ${name}`);
+    setTimeout(() => {
+      setAuthNotification(null);
+    }, 4000);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setView("landing");
+    setAuthNotification("Successfully logged out");
     setTimeout(() => {
       setAuthNotification(null);
     }, 4000);
@@ -122,7 +134,8 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         onViewChange={setView}
         currentView={view}
-        userName={user?.name}
+        userName={userName}
+        onLogout={handleLogout}
       />
 
       {/* 3. Connection Status Overlay Tag */}
@@ -147,7 +160,7 @@ export default function App() {
                 <div className="h-3 w-px bg-theme-border/40" />
                 <button
                   onClick={() => setConnectionStatus("idle")}
-                  className="cursor-pointer text-[9px] font-semibold text-red-500 hover:text-red-400 uppercase tracking-widest hover:underline"
+                  className="cursor-pointer text-[9px] font-semibold text-red-500 hover:text-red-400 uppercase tracking-widest hover:underline outline-none"
                 >
                   Disconnect
                 </button>
@@ -186,9 +199,11 @@ export default function App() {
               className="w-full flex flex-col items-center"
             >
               {connectionStatus === "connected" ? (
-                <div className="w-full max-w-6xl mx-auto px-6 py-12 md:py-24 animate-fade-in">
-                  <DashboardMockup onLeave={() => setConnectionStatus("idle")} />
-                </div>
+                <ProtectedRoute onRedirect={setView}>
+                  <div className="w-full max-w-6xl mx-auto px-6 py-12 md:py-24 animate-fade-in">
+                    <DashboardMockup onLeave={() => setConnectionStatus("idle")} />
+                  </div>
+                </ProtectedRoute>
               ) : (
                 <>
         
@@ -259,7 +274,7 @@ export default function App() {
               </div>
               <button
                 onClick={handleStartMeeting}
-                className="w-full cursor-pointer py-3.5 px-4 text-xs font-semibold uppercase tracking-wider text-theme-text-primary border border-theme-border hover:border-theme-text-primary rounded-xl transition-all duration-300 hover:bg-theme-text-secondary/5 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+                className="w-full cursor-pointer py-3.5 px-4 text-xs font-semibold uppercase tracking-wider text-theme-text-primary border border-theme-border hover:border-theme-text-primary rounded-xl transition-all duration-300 hover:bg-theme-text-secondary/5 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 outline-none"
               >
                 Get Started
               </button>
@@ -310,7 +325,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={handleStartMeeting}
-                  className="w-full cursor-pointer py-3.5 px-4 text-xs font-semibold uppercase tracking-wider text-[#FFFFFF] dark:text-[#0B0B0B] bg-theme-text-primary hover:scale-[1.02] active:scale-[0.98] rounded-xl transition-all duration-300 shadow-md hover:shadow-lg"
+                  className="w-full cursor-pointer py-3.5 px-4 text-xs font-semibold uppercase tracking-wider text-[#FFFFFF] dark:text-[#0B0B0B] bg-theme-text-primary hover:scale-[1.02] active:scale-[0.98] rounded-xl transition-all duration-300 shadow-md hover:shadow-lg outline-none"
                 >
                   Start Pro Trial
                 </button>
@@ -351,7 +366,7 @@ export default function App() {
               </div>
               <button
                 onClick={() => scrollToSection("contact")}
-                className="w-full cursor-pointer py-3.5 px-4 text-xs font-semibold uppercase tracking-wider text-theme-text-primary border border-theme-border hover:border-theme-text-primary rounded-xl transition-all duration-300 hover:bg-theme-text-secondary/5 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+                className="w-full cursor-pointer py-3.5 px-4 text-xs font-semibold uppercase tracking-wider text-theme-text-primary border border-theme-border hover:border-theme-text-primary rounded-xl transition-all duration-300 hover:bg-theme-text-secondary/5 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 outline-none"
               >
                 Contact Sales
               </button>
@@ -636,7 +651,7 @@ export default function App() {
               {/* Close Button */}
               <button
                 onClick={() => setIsJoinModalOpen(false)}
-                className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-theme-text-secondary/15 dark:hover:bg-theme-text-secondary/10 text-theme-text-secondary hover:text-theme-text-primary transition-colors cursor-pointer"
+                className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-theme-text-secondary/15 dark:hover:bg-theme-text-secondary/10 text-theme-text-secondary hover:text-theme-text-primary transition-colors cursor-pointer outline-none"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -694,13 +709,13 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setIsJoinModalOpen(false)}
-                    className="flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-theme-text-secondary hover:text-theme-text-primary glass-pill hover:bg-theme-text-secondary/10 dark:hover:bg-theme-text-secondary/5 rounded-xl border border-theme-border transition-colors cursor-pointer"
+                    className="flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-theme-text-secondary hover:text-theme-text-primary glass-pill hover:bg-theme-text-secondary/10 dark:hover:bg-theme-text-secondary/5 rounded-xl border border-theme-border transition-colors cursor-pointer outline-none"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 cursor-pointer py-3 text-xs font-semibold uppercase tracking-wider text-theme-bg bg-theme-text-primary hover:opacity-90 rounded-xl flex items-center justify-center gap-1.5 shadow-[0_8px_20px_rgba(0,0,0,0.12)] dark:shadow-none shadow-lg transition-all"
+                    className="flex-1 cursor-pointer py-3 text-xs font-semibold uppercase tracking-wider text-theme-bg bg-theme-text-primary hover:opacity-90 rounded-xl flex items-center justify-center gap-1.5 shadow-[0_8px_20px_rgba(0,0,0,0.12)] dark:shadow-none shadow-lg transition-all outline-none"
                   >
                     <LogIn className="w-4 h-4" />
                     <span>Connect</span>
@@ -712,5 +727,13 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
