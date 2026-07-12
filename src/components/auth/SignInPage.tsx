@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Mail, Lock, Sparkles, AlertCircle, CheckCircle } from "lucide-react";
+import { Mail, Lock, Sparkles, AlertCircle, CheckCircle, Cpu, Network, Globe } from "lucide-react";
 import { motion } from "motion/react";
 import AuthCard from "./AuthCard";
 import AuthInput from "./AuthInput";
@@ -49,7 +49,7 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
     setTimeout(() => {
       if (data.email.toLowerCase() === "error@nexus.com") {
         setLoading(false);
-        setErrorMessage("Invalid email or password. Please verify your credentials.");
+        setErrorMessage("Invalid email or password");
       } else {
         setSuccessMessage("Welcome back to Nexus");
         setTimeout(() => {
@@ -64,15 +64,41 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
 
   return (
     <div className="w-full max-w-6xl mx-auto px-6 py-12 md:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center min-h-[calc(100vh-140px)]">
-      {/* Left Column: Premium Brand Presence & Visual Animation (hidden on mobile) */}
+      
+      {/* Left Column: Premium Brand Presence & Visual Animation */}
       <motion.div
         initial={{ opacity: 0, x: -40 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="hidden lg:flex lg:col-span-6 flex-col text-left gap-8"
+        className="hidden lg:flex lg:col-span-6 flex-col text-left gap-8 relative"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-theme-text-primary flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.15)]">
+        {/* Subtle floating particles in the left column background */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {[...Array(12)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1.5 h-1.5 rounded-full bg-theme-text-primary/10 dark:bg-theme-text-primary/5"
+              style={{
+                top: `${Math.random() * 80 + 10}%`,
+                left: `${Math.random() * 80 + 10}%`,
+              }}
+              animate={{
+                y: [0, -35, 0],
+                x: [0, Math.random() * 15 - 7.5, 0],
+                opacity: [0.1, 0.5, 0.1],
+              }}
+              transition={{
+                duration: 6 + Math.random() * 5,
+                repeat: Infinity,
+                delay: Math.random() * 4,
+                ease: "easeInOut",
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="w-10 h-10 rounded-xl bg-theme-text-primary flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.15)] dark:shadow-[0_0_15px_rgba(255,255,255,0.1)]">
             <span className="font-panchang font-extrabold text-theme-bg text-sm">N</span>
           </div>
           <span className="font-panchang font-extrabold text-xl tracking-wider text-theme-text-primary uppercase">
@@ -80,7 +106,7 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
           </span>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 relative z-10">
           <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight text-theme-text-primary leading-[1.15]">
             Enterprise-Grade <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-theme-text-primary via-theme-text-muted to-theme-text-primary/40">
@@ -92,39 +118,94 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
           </p>
         </div>
 
-        {/* Rotating Geometric Mesh Visualizer */}
+        {/* Animated Futuristic Connection Matrix visualizer */}
         <div className="relative w-full max-w-sm aspect-square rounded-3xl glass-panel border border-theme-border/30 p-8 flex items-center justify-center overflow-hidden">
-          <div className="absolute inset-0 bg-radial-glow opacity-30 pointer-events-none" />
+          {/* Volumetric background radial aura */}
+          <div className="absolute inset-0 bg-radial-glow opacity-40 pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-tr from-theme-text-primary/5 to-transparent blur-2xl rounded-full" />
           
-          {/* Animated SVG Graphic */}
+          {/* Interactive animated SVG core */}
           <motion.svg
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 40, ease: "linear" }}
-            className="w-48 h-48 text-theme-text-primary/20 dark:text-theme-text-primary/10"
-            viewBox="0 0 100 100"
+            className="w-52 h-52 text-theme-text-primary/15 dark:text-theme-text-primary/10"
+            viewBox="0 0 120 120"
           >
-            {/* Outer rings */}
-            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="3 3" />
-            <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" strokeWidth="0.5" />
-            
-            {/* Mesh lines connecting vertices */}
-            <line x1="50" y1="5" x2="50" y2="95" stroke="currentColor" strokeWidth="0.25" />
-            <line x1="5" y1="50" x2="95" y2="50" stroke="currentColor" strokeWidth="0.25" />
-            <line x1="18" y1="18" x2="82" y2="82" stroke="currentColor" strokeWidth="0.25" />
-            <line x1="18" y1="82" x2="82" y2="18" stroke="currentColor" strokeWidth="0.25" />
-            
-            {/* Interactive nodes */}
-            <motion.circle cx="50" cy="15" r="2.5" fill="currentColor" animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 3 }} />
-            <motion.circle cx="50" cy="85" r="2.5" fill="currentColor" animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 3, delay: 1.5 }} />
-            <motion.circle cx="15" cy="50" r="2.5" fill="currentColor" animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 3, delay: 0.75 }} />
-            <motion.circle cx="85" cy="50" r="2.5" fill="currentColor" animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 3, delay: 2.25 }} />
+            <defs>
+              <filter id="coreGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3.5" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+
+            {/* Glowing path connections */}
+            <motion.path
+              d="M 60,15 L 20,55 L 100,55 L 60,15 M 60,15 L 60,95 M 20,55 L 100,55 M 20,55 L 60,95 M 100,55 L 60,95 M 32,32 L 88,88 M 32,88 L 88,32"
+              stroke="currentColor"
+              strokeWidth="0.5"
+              fill="none"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 3.5, ease: "easeInOut" }}
+            />
+
+            {/* Orbiting rings */}
+            <motion.circle
+              cx="60"
+              cy="60"
+              r="48"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="0.3"
+              strokeDasharray="4 6"
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 32, ease: "linear" }}
+            />
+            <motion.circle
+              cx="60"
+              cy="60"
+              r="38"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="0.4"
+              strokeDasharray="12 8"
+              animate={{ rotate: -360 }}
+              transition={{ repeat: Infinity, duration: 24, ease: "linear" }}
+            />
+
+            {/* Central Node Pulsing Core */}
+            <motion.circle
+              cx="60"
+              cy="60"
+              r="8"
+              fill="currentColor"
+              className="text-theme-text-primary/20 dark:text-theme-text-primary/15"
+              filter="url(#coreGlow)"
+              animate={{
+                scale: [1, 1.25, 1],
+                opacity: [0.4, 0.7, 0.4]
+              }}
+              transition={{
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            />
+
+            {/* Node vertices */}
+            <motion.circle cx="60" cy="15" r="2" fill="currentColor" animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 3, delay: 0.2 }} />
+            <motion.circle cx="60" cy="95" r="2" fill="currentColor" animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 3, delay: 1.4 }} />
+            <motion.circle cx="20" cy="55" r="2" fill="currentColor" animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 3, delay: 0.8 }} />
+            <motion.circle cx="100" cy="55" r="2" fill="currentColor" animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 3, delay: 2.0 }} />
           </motion.svg>
 
-          <div className="absolute bottom-5 left-5 right-5 flex justify-between items-center text-[10px] font-mono text-theme-text-muted">
-            <span>Core: Active</span>
+          {/* Matrix diagnostics info tag */}
+          <div className="absolute bottom-5 left-5 right-5 flex justify-between items-center text-[9px] font-mono text-theme-text-muted">
+            <span className="flex items-center gap-1.5">
+              <Cpu className="w-3 h-3 animate-spin" style={{ animationDuration: "6s" }} />
+              COGNITIVE MATRIX
+            </span>
             <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Latency: 12ms
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              PORT: 443
             </span>
           </div>
         </div>
@@ -190,6 +271,7 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
                 error={errors.password?.message}
                 disabled={loading || successMessage !== ""}
               />
+              
               <div className="flex items-center justify-between mt-1 text-[11px] font-sans">
                 <label className="flex items-center gap-2 text-theme-text-secondary cursor-pointer select-none">
                   <input
@@ -203,7 +285,7 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
                 <button
                   type="button"
                   onClick={() => onNavigate("forgot")}
-                  className="text-theme-text-muted hover:text-theme-text-primary transition-colors hover:underline cursor-pointer"
+                  className="text-theme-text-muted hover:text-theme-text-primary transition-colors hover:underline cursor-pointer outline-none"
                   disabled={loading || successMessage !== ""}
                 >
                   Forgot password?
@@ -225,13 +307,14 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
           {/* Social login separators */}
           <div className="flex items-center gap-3 py-1.5">
             <div className="h-px bg-theme-border/20 flex-1" />
-            <span className="text-[10px] font-mono uppercase tracking-wider text-theme-text-muted select-none">
+            <span className="text-[9px] font-mono uppercase tracking-wider text-theme-text-muted select-none">
               Or Secure Connection
             </span>
             <div className="h-px bg-theme-border/20 flex-1" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="flex flex-col gap-3">
+            {/* Primary Social Integration */}
             <SocialLoginButton
               provider="google"
               onClick={() => {
@@ -243,17 +326,46 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
               }}
               disabled={loading || successMessage !== ""}
             />
-            <SocialLoginButton
-              provider="github"
-              onClick={() => {
-                setLoading(true);
-                setTimeout(() => {
-                  setLoading(false);
-                  onSuccess("GitHub User");
-                }, 1500);
-              }}
-              disabled={loading || successMessage !== ""}
-            />
+            
+            {/* Secondary authentication placeholders */}
+            <div className="flex gap-3">
+              <SocialLoginButton
+                provider="github"
+                className="flex-1 py-2.5"
+                onClick={() => {
+                  setLoading(true);
+                  setTimeout(() => {
+                    setLoading(false);
+                    onSuccess("GitHub User");
+                  }, 1500);
+                }}
+                disabled={loading || successMessage !== ""}
+              />
+              <SocialLoginButton
+                provider="microsoft"
+                className="flex-1 py-2.5"
+                onClick={() => {
+                  setLoading(true);
+                  setTimeout(() => {
+                    setLoading(false);
+                    onSuccess("Microsoft User");
+                  }, 1500);
+                }}
+                disabled={loading || successMessage !== ""}
+              />
+              <SocialLoginButton
+                provider="apple"
+                className="flex-1 py-2.5"
+                onClick={() => {
+                  setLoading(true);
+                  setTimeout(() => {
+                    setLoading(false);
+                    onSuccess("Apple User");
+                  }, 1500);
+                }}
+                disabled={loading || successMessage !== ""}
+              />
+            </div>
           </div>
 
           <div className="text-center text-[12px] font-sans text-theme-text-secondary mt-3">
@@ -271,3 +383,4 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
     </div>
   );
 }
+
