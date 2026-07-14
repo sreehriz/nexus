@@ -29,6 +29,32 @@ export function useDashboardData() {
     setLoading(true);
     setError(null);
 
+    const isMockSupabase =
+      !import.meta.env.VITE_SUPABASE_URL ||
+      import.meta.env.VITE_SUPABASE_URL.includes("placeholder-url.supabase.co");
+
+    if (isMockSupabase) {
+      // Mock metrics data for testing
+      setTimeout(() => {
+        setData({
+          id: "mock-metrics-id",
+          user_id: user.id,
+          total_projects: 12,
+          active_tasks: 24,
+          monthly_usage: 128,
+          recent_activity: [
+            { event: "Connected local client to Tokyo Edge Relay", time: "Just now" },
+            { event: "MOM Summary generated for Edge Negotiation", time: "12 mins ago" },
+            { event: "Uploaded architecture-blueprint.pdf", time: "1 hour ago" },
+          ],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        setLoading(false);
+      }, 500);
+      return;
+    }
+
     try {
       const { data: row, error: fetchError } = await supabase
         .from("dashboard_metrics")

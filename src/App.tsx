@@ -8,7 +8,7 @@ import TestimonialsCard from "./components/TestimonialsCard";
 import SignInPage from "./components/auth/SignInPage";
 import SignUpPage from "./components/auth/SignUpPage";
 import ForgotPasswordPage from "./components/auth/ForgotPasswordPage";
-import DashboardMockup from "./components/DashboardMockup";
+import MeetingRoom from "./components/MeetingRoom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
@@ -87,20 +87,57 @@ function AppContent() {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
   };
 
-  const handleStartMeeting = () => {
+  const handleStartMeeting = async () => {
     setConnectionStatus("connecting");
-    const randomCode = "nex-" + Math.floor(100 + Math.random() * 900) + "-slv";
-    setRoomCode(randomCode);
-    setTimeout(() => {
-      setConnectionStatus("connected");
-    }, 1800);
+    const token = localStorage.getItem("nexus_jwt");
+    try {
+      const res = await fetch("http://localhost:8000/api/createMeeting", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRoomCode(data.roomCode);
+        const joinRes = await fetch("http://localhost:8000/api/joinMeeting", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            roomCode: data.roomCode,
+            displayName: userName || "Host",
+            userId: user?.id || ""
+          })
+        });
+        if (joinRes.ok) {
+          const joinData = await joinRes.json();
+          localStorage.setItem("nexus_room_token", joinData.token);
+          localStorage.setItem("nexus_role", joinData.role);
+          setConnectionStatus("connected");
+        } else {
+          setJoinError("Failed to acquire room session token");
+          setConnectionStatus("idle");
+        }
+      } else {
+        setJoinError("Failed to initiate meeting room on server");
+        setConnectionStatus("idle");
+      }
+    } catch (err) {
+      console.warn("Server connection failed, launching offline guest session:", err);
+      const randomCode = "nex-" + Math.floor(100 + Math.random() * 900) + "-slv";
+      setRoomCode(randomCode);
+      localStorage.setItem("nexus_role", "Organizer");
+      setTimeout(() => {
+        setConnectionStatus("connected");
+      }, 1200);
+    }
   };
 
   const handleOpenJoinModal = () => {
     setIsJoinModalOpen(true);
   };
 
-  const handleJoinSubmit = (e: React.FormEvent) => {
+  const handleJoinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!roomCode.trim()) {
       setJoinError("Please enter a valid conference Room ID.");
@@ -109,9 +146,35 @@ function AppContent() {
     setJoinError("");
     setIsJoinModalOpen(false);
     setConnectionStatus("connecting");
-    setTimeout(() => {
-      setConnectionStatus("connected");
-    }, 1800);
+
+    try {
+      const joinRes = await fetch("http://localhost:8000/api/joinMeeting", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          roomCode: roomCode.trim(),
+          displayName: customName.trim() || userName || "Guest",
+          userId: user?.id || ""
+        })
+      });
+      if (joinRes.ok) {
+        const joinData = await joinRes.json();
+        localStorage.setItem("nexus_room_token", joinData.token);
+        localStorage.setItem("nexus_role", joinData.role);
+        setConnectionStatus("connected");
+      } else {
+        const errData = await joinRes.json();
+        setJoinError(errData.detail || "Room is active but locked, or not found.");
+        setConnectionStatus("idle");
+        setIsJoinModalOpen(true);
+      }
+    } catch (err) {
+      console.warn("Server connection failed, joining room locally:", err);
+      localStorage.setItem("nexus_role", "Participant");
+      setTimeout(() => {
+        setConnectionStatus("connected");
+      }, 1200);
+    }
   };
 
   const scrollToSection = (sectionId: string) => {
@@ -128,15 +191,17 @@ function AppContent() {
       <CinematicBackground theme={theme} />
 
       {/* 2. Glassmorphic Sticky Header / Navigation */}
-      <SpotlightNavbar
-        onStartMeeting={handleStartMeeting}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        onViewChange={setView}
-        currentView={view}
-        userName={userName}
-        onLogout={handleLogout}
-      />
+      {connectionStatus !== "connected" && (
+        <SpotlightNavbar
+          onStartMeeting={handleStartMeeting}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onViewChange={setView}
+          currentView={view}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+      )}
 
       {/* 3. Connection Status Overlay Tag */}
       <AnimatePresence>
@@ -200,8 +265,8 @@ function AppContent() {
             >
               {connectionStatus === "connected" ? (
                 <ProtectedRoute onRedirect={setView}>
-                  <div className="w-full max-w-6xl mx-auto px-6 py-12 md:py-24 animate-fade-in">
-                    <DashboardMockup onLeave={() => setConnectionStatus("idle")} />
+                  <div className="fixed inset-0 w-screen h-screen z-50 bg-[#0B0B0B] animate-fade-in">
+                    <MeetingRoom roomCode={roomCode} onLeave={() => setConnectionStatus("idle")} />
                   </div>
                 </ProtectedRoute>
               ) : (
@@ -559,73 +624,75 @@ function AppContent() {
       </main>
 
       {/* 4. PREMIUM FOOTER SECTION */}
-      <footer id="contact" className="relative z-10 w-full border-t border-theme-border/25 bg-theme-bg/40 backdrop-blur-md pt-20 pb-10">
-        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-12 gap-12 mb-16 text-left">
-          
-          {/* Column 1: Brand */}
-          <div className="md:col-span-5 flex flex-col gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8.5 h-8.5 rounded-lg bg-theme-text-primary flex items-center justify-center">
-                <span className="font-panchang font-extrabold text-theme-bg text-xs select-none">N</span>
-              </div>
-              <span className="font-panchang font-extrabold text-base text-theme-text-primary tracking-wider uppercase">
-                Nexus
-              </span>
-            </div>
-            <p className="text-xs text-theme-text-secondary leading-relaxed max-w-sm">
-              A modern, secure, and lightning-fast video conferencing platform built for seamless global collaboration and crystal-clear connections.
-            </p>
-          </div>
-
-          {/* Column 2: Quick Links */}
-          <div className="md:col-span-3 flex flex-col gap-4">
-            <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-theme-text-muted">Quick Links</h4>
-            <div className="flex flex-col gap-2.5">
-              {["Features", "Pricing", "About", "Contact"].map((item) => (
-                <button
-                  key={item}
-                  onClick={() => {
-                    if (item === "Contact") {
-                      scrollToSection("contact");
-                    } else {
-                      scrollToSection(item.toLowerCase());
-                    }
-                  }}
-                  className="text-xs text-theme-text-secondary hover:text-theme-text-primary cursor-pointer text-left transition-colors font-medium outline-none"
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Column 3: Resources */}
-          <div className="md:col-span-4 flex flex-col gap-4">
-            <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-theme-text-muted">Resources</h4>
-            <div className="flex flex-col gap-2.5">
-              {["Privacy Policy", "Terms of Service", "Help Center"].map((item) => (
-                <span
-                  key={item}
-                  className="text-xs text-theme-text-secondary hover:text-theme-text-primary cursor-pointer transition-colors"
-                >
-                  {item}
+      {connectionStatus !== "connected" && (
+        <footer id="contact" className="relative z-10 w-full border-t border-theme-border/25 bg-theme-bg/40 backdrop-blur-md pt-20 pb-10">
+          <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-12 gap-12 mb-16 text-left">
+            
+            {/* Column 1: Brand */}
+            <div className="md:col-span-5 flex flex-col gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8.5 h-8.5 rounded-lg bg-theme-text-primary flex items-center justify-center">
+                  <span className="font-panchang font-extrabold text-theme-bg text-xs select-none">N</span>
+                </div>
+                <span className="font-panchang font-extrabold text-base text-theme-text-primary tracking-wider uppercase">
+                  Nexus
                 </span>
-              ))}
+              </div>
+              <p className="text-xs text-theme-text-secondary leading-relaxed max-w-sm">
+                A modern, secure, and lightning-fast video conferencing platform built for seamless global collaboration and crystal-clear connections.
+              </p>
+            </div>
+
+            {/* Column 2: Quick Links */}
+            <div className="md:col-span-3 flex flex-col gap-4">
+              <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-theme-text-muted">Quick Links</h4>
+              <div className="flex flex-col gap-2.5">
+                {["Features", "Pricing", "About", "Contact"].map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => {
+                      if (item === "Contact") {
+                        scrollToSection("contact");
+                      } else {
+                        scrollToSection(item.toLowerCase());
+                      }
+                    }}
+                    className="text-xs text-theme-text-secondary hover:text-theme-text-primary cursor-pointer text-left transition-colors font-medium outline-none"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Column 3: Resources */}
+            <div className="md:col-span-4 flex flex-col gap-4">
+              <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-theme-text-muted">Resources</h4>
+              <div className="flex flex-col gap-2.5">
+                {["Privacy Policy", "Terms of Service", "Help Center"].map((item) => (
+                  <span
+                    key={item}
+                    className="text-xs text-theme-text-secondary hover:text-theme-text-primary cursor-pointer transition-colors"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="max-w-6xl mx-auto px-6 border-t border-theme-border/20 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] uppercase tracking-[0.2em] font-mono text-theme-text-muted">
+            <span>© 2026 Nexus. All rights reserved.</span>
+            <div className="flex flex-wrap justify-center gap-x-8 gap-y-2">
+              <span>Global Latency: 12ms</span>
+              <span>AES-256 Encrypted</span>
+              <span>v4.0.12-Stable</span>
             </div>
           </div>
-
-        </div>
-
-        {/* Bottom Bar */}
-        <div className="max-w-6xl mx-auto px-6 border-t border-theme-border/20 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] uppercase tracking-[0.2em] font-mono text-theme-text-muted">
-          <span>© 2026 Nexus. All rights reserved.</span>
-          <div className="flex flex-wrap justify-center gap-x-8 gap-y-2">
-            <span>Global Latency: 12ms</span>
-            <span>AES-256 Encrypted</span>
-            <span>v4.0.12-Stable</span>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
       {/* --- MODAL: JOIN MEETING DIALOG --- */}
       <AnimatePresence>
