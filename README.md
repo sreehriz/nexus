@@ -73,28 +73,28 @@
 > [!NOTE]
 > Futuristic monochrome dark-mode homepage with full pricing breakdowns, comprehensive platform comparisons, and automated FAQ accordions.
 <p align="center">
-  <img src="./assets/banner.png" alt="Landing Page Mockup" width="90%" />
+  <img src="./assets/screenshot_landing.png" alt="Nexus Landing Page" width="90%" />
 </p>
 
 ### 📊 User Dashboard
 > [!NOTE]
 > Real-time aggregates showing meeting histories, personal analytics (average ping metrics, total durations, active hosts count), and profile configuration portals.
 <p align="center">
-  <img src="./assets/banner.png" alt="Dashboard Mockup" width="90%" />
+  <img src="./assets/screenshot_dashboard.png" alt="Nexus User Dashboard" width="90%" />
 </p>
 
 ### 🎙️ Meeting Room
 > [!NOTE]
-> low-latency WebRTC mesh rendering video nodes side-by-side with real-time transcription channels, shared board sketches, and floating reactions.
+> Low-latency WebRTC mesh rendering video nodes side-by-side with real-time transcription channels, shared board sketches, and floating reactions.
 <p align="center">
-  <img src="./assets/banner.png" alt="Meeting Room Mockup" width="90%" />
+  <img src="./assets/screenshot_meeting.png" alt="Nexus Meeting Room" width="90%" />
 </p>
 
-### 🤖 AI Assistant & Search
+### 👤 User Profile
 > [!NOTE]
-> Nexus Memory™ semantic search search interface leveraging Gemini embeddings over transcripts, mapping action items and key decisions.
+> User customization page displaying display names, active email nodes, presets, and customized configuration settings.
 <p align="center">
-  <img src="./assets/banner.png" alt="AI Assistant Mockup" width="90%" />
+  <img src="./assets/screenshot_profile.png" alt="Nexus User Profile" width="90%" />
 </p>
 
 ---
@@ -594,7 +594,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## 👨‍💻 Author
 
-### Sreeharsha Rao
+### Sreehari
 * **Role**: Senior Software Engineer & Platform Architect
 * **GitHub**: [@sreehriz](https://github.com/sreehriz)
 * **LinkedIn**: [linkedin.com/in/sreehriz](https://linkedin.com/in/sreehriz)
