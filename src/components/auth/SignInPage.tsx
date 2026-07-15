@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Mail, Lock, Sparkles, AlertCircle, CheckCircle, Cpu, Network, Globe } from "lucide-react";
 import { motion } from "motion/react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import AuthCard from "./AuthCard";
 import AuthInput from "./AuthInput";
 import AuthButton from "./AuthButton";
@@ -25,8 +26,8 @@ const signInSchema = z.object({
 type SignInFormValues = z.infer<typeof signInSchema>;
 
 interface SignInPageProps {
-  onNavigate: (view: "landing" | "signin" | "signup" | "forgot") => void;
-  onSuccess: (name: string) => void;
+  onNavigate?: (view: "landing" | "signin" | "signup" | "forgot") => void;
+  onSuccess?: (name: string) => void;
 }
 
 export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
@@ -34,6 +35,9 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as any)?.from?.pathname || "/dashboard";
 
   const {
     register,
@@ -60,10 +64,15 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
         // Retrieve fresh user info to get metadata
         const { data: { user } } = await supabase.auth.getUser();
         const displayName = user?.user_metadata?.fullName || user?.user_metadata?.username || data.email.split("@")[0];
+        const name = displayName.charAt(0).toUpperCase() + displayName.slice(1);
 
         setTimeout(() => {
           setLoading(false);
-          onSuccess(displayName.charAt(0).toUpperCase() + displayName.slice(1));
+          if (onSuccess) {
+            onSuccess(name);
+          } else {
+            navigate(from, { replace: true });
+          }
         }, 1200);
       }
     } catch (err: any) {
@@ -313,14 +322,12 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
                   />
                   <span>Remember me</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => onNavigate("forgot")}
+                <Link
+                  to="/forgot-password"
                   className="text-theme-text-muted hover:text-theme-text-primary transition-colors hover:underline cursor-pointer outline-none"
-                  disabled={loading || successMessage !== ""}
                 >
                   Forgot password?
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -377,13 +384,12 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
 
           <div className="text-center text-[12px] font-sans text-theme-text-secondary mt-3">
             Don't have an account?{" "}
-            <button
-              onClick={() => onNavigate("signup")}
+            <Link
+              to="/signup"
               className="text-theme-text-primary font-semibold hover:underline cursor-pointer outline-none"
-              disabled={loading || successMessage !== ""}
             >
               Create one
-            </button>
+            </Link>
           </div>
         </AuthCard>
       </motion.div>

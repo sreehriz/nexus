@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Mail, Lock, User, AtSign, ArrowRight, ArrowLeft, Check, Sparkles, AlertCircle, Upload, Trash2, Users, Code, ShieldCheck, Cpu } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useNavigate, Link } from "react-router-dom";
 import AuthCard from "./AuthCard";
 import AuthInput from "./AuthInput";
 import AuthButton from "./AuthButton";
@@ -60,11 +61,12 @@ const INTERESTS = [
 ];
 
 interface SignUpPageProps {
-  onNavigate: (view: "landing" | "signin" | "signup" | "forgot") => void;
-  onSuccess: (name: string) => void;
+  onNavigate?: (view: "landing" | "signin" | "signup" | "forgot") => void;
+  onSuccess?: (name: string) => void;
 }
 
 export default function SignUpPage({ onNavigate, onSuccess }: SignUpPageProps) {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState(PRESET_AVATARS[0].id);
@@ -143,7 +145,11 @@ export default function SignUpPage({ onNavigate, onSuccess }: SignUpPageProps) {
         setStep(1); // Return to Step 1 to correct fields
       } else {
         setLoading(false);
-        onSuccess(data.fullName);
+        if (onSuccess) {
+          onSuccess(data.fullName);
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
       }
     } catch (err: any) {
       setLoading(false);

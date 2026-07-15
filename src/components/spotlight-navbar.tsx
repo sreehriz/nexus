@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import { animate } from "motion";
 import { motion, AnimatePresence } from "motion/react";
 import { Video, Shield, Code, ChevronDown, AlignRight, X, ArrowUpRight, Sun, Moon } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { cn } from "../lib/utils";
 
 export interface NavItem {
@@ -40,6 +41,7 @@ export default function SpotlightNavbar({
   const [hoverX, setHoverX] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Refs for the light positions so we can animate them imperatively
   const spotlightX = useRef(0);
@@ -238,28 +240,38 @@ export default function SpotlightNavbar({
           </button>
 
           {userName ? (
-            <button
-              onClick={onLogout}
-              className="text-xs font-mono font-bold tracking-wider uppercase text-theme-text-primary border border-theme-border/60 rounded-lg px-3 py-1.5 bg-theme-text-primary/5 hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400 transition-all duration-300 cursor-pointer select-none outline-none"
-              title="Click to Sign Out"
-            >
-              ● {userName}
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/dashboard"
+                className="text-xs font-mono font-semibold tracking-wider uppercase text-theme-text-secondary hover:text-theme-text-primary border border-theme-border/40 rounded-lg px-3 py-1.5 hover:border-theme-border transition-all duration-300"
+              >
+                Dashboard
+              </Link>
+              <button
+                onClick={onLogout}
+                className="text-xs font-mono font-bold tracking-wider uppercase text-theme-text-primary border border-theme-border/60 rounded-lg px-3 py-1.5 bg-theme-text-primary/5 hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400 transition-all duration-300 cursor-pointer select-none outline-none"
+                title="Click to Sign Out"
+              >
+                ● {userName}
+              </button>
+            </div>
           ) : (
-            <button
-              onClick={() => onViewChange?.("signin")}
+            <Link
+              to="/signin"
               className="text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary cursor-pointer transition-colors px-3 py-1.5 rounded-lg hover:bg-theme-text-secondary/10 dark:hover:bg-theme-text-secondary/5"
             >
               Sign In
-            </button>
+            </Link>
           )}
 
-          <button
-            onClick={() => onViewChange ? onViewChange("signup") : onStartMeeting()}
-            className="cursor-pointer text-xs font-semibold tracking-wider uppercase text-theme-bg bg-theme-text-primary hover:opacity-90 active:scale-[0.98] transition-all px-5 py-2.5 rounded-lg border border-transparent shadow-[0_8px_20px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_12px_rgba(255,255,255,0.08)]"
-          >
-            Get Started
-          </button>
+          {!userName && (
+            <Link
+              to="/signup"
+              className="cursor-pointer text-xs font-semibold tracking-wider uppercase text-theme-bg bg-theme-text-primary hover:opacity-90 active:scale-[0.98] transition-all px-5 py-2.5 rounded-lg border border-transparent shadow-[0_8px_20px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_12px_rgba(255,255,255,0.08)]"
+            >
+              Get Started
+            </Link>
+          )}
         </div>
 
         {/* Mobile Menu Actions */}
@@ -324,29 +336,21 @@ export default function SpotlightNavbar({
                   ● ACTIVE NODE: {userName} (SIGN OUT)
                 </button>
               ) : (
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onViewChange?.("signin");
-                  }}
+                <Link
+                  to="/signin"
+                  onClick={() => setMobileMenuOpen(false)}
                   className="w-full text-center text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary py-3 border border-theme-border/60 rounded-xl"
                 >
                   Sign In
-                </button>
+                </Link>
               )}
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (onViewChange) {
-                    onViewChange("signup");
-                  } else {
-                    onStartMeeting();
-                  }
-                }}
+              <Link
+                to="/signup"
+                onClick={() => setMobileMenuOpen(false)}
                 className="w-full text-center text-sm font-semibold text-theme-bg bg-theme-text-primary hover:opacity-90 py-3.5 rounded-xl shadow-lg"
               >
                 Get Started
-              </button>
+              </Link>
             </div>
           </motion.div>
         )}

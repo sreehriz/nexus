@@ -5,10 +5,12 @@ import { supabase } from "../lib/supabaseClient";
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, metadata: Record<string, any>) => Promise<{ error: any }>;
   logout: () => Promise<{ error: any }>;
   resetPassword: (email: string) => Promise<{ error: any }>;
+  refreshToken: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -87,19 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const errData = await res.json();
           return { error: { message: errData.detail || "Invalid email or password" } };
         }
-      } catch (err) {
-        console.warn("Backend auth failed, falling back to local guest session");
-        const mockUser: User = {
-          id: "mock-user-id-" + email.replace(/[^a-zA-Z0-9]/g, ""),
-          email,
-          user_metadata: { fullName: email.split("@")[0] },
-          app_metadata: {},
-          aud: "authenticated",
-          created_at: new Date().toISOString(),
-        };
-        localStorage.setItem("nexus_mock_session", JSON.stringify(mockUser));
-        setUser(mockUser);
-        return { error: null };
+      } catch {
+        return { error: { message: "Cannot connect to server. Please ensure the backend is running on port 8000." } };
       }
     }
 
@@ -141,20 +132,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const errData = await res.json();
           return { error: { message: errData.detail || "Registration failed" } };
         }
-      } catch (err) {
-        console.warn("Backend sign up failed, falling back to local storage session");
-        const mockUser: User = {
-          id: "mock-user-id-" + email.replace(/[^a-zA-Z0-9]/g, ""),
-          email,
-          user_metadata: metadata,
-          app_metadata: {},
-          aud: "authenticated",
-          created_at: new Date().toISOString(),
-        };
-        localStorage.setItem("nexus_mock_user_" + email, JSON.stringify({ email, password, metadata }));
-        localStorage.setItem("nexus_mock_session", JSON.stringify(mockUser));
-        setUser(mockUser);
-        return { error: null };
+      } catch {
+        return { error: { message: "Cannot connect to server. Please ensure the backend is running on port 8000." } };
       }
     }
 
@@ -203,8 +182,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+
+  const refreshToken = async (): Promise<boolean> => {
+    if (!isMockSupabase) {
+      // Supabase handles its own refresh automatically
+      return true;
+    }
+    const existingToken = localStorage.getItem("nexus_jwt");
+    if (!existingToken) return false;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/refresh`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${existingToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem("nexus_jwt", data.token);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  const isAuthenticated = !!user;
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signUp, logout, resetPassword }}>
+    <AuthContext.Provider value={{ user, loading, isAuthenticated, login, signUp, logout, resetPassword, refreshToken }}>
       {children}
     </AuthContext.Provider>
   );

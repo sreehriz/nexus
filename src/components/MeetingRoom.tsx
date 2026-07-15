@@ -56,91 +56,30 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { io, Socket } from "socket.io-client";
 
-// --- Types & Interfaces ---
-interface Participant {
-  id: string;
-  name: string;
-  role: "Organizer" | "Co-Host" | "Participant";
-  avatarColor: string;
-  isMuted: boolean;
-  isVideoOff: boolean;
-  isSharingScreen: boolean;
-  isHandRaised: boolean;
-  isPinned: boolean;
-  ping: number;
-  audioLevel: number; // 0 to 100
-  language: string;
-}
-
-interface ChatMessage {
-  id: string;
-  sender: string;
-  text: string;
-  time: string;
-  isMe?: boolean;
-  repliesCount?: number;
-  reactions?: { emoji: string; count: number; users: string[] }[];
-  isCode?: boolean;
-}
-
-interface TranscriptLine {
-  speaker: string;
-  text: string;
-  timestamp: string;
-  detectedLanguage?: string;
-  translation?: string;
-}
-
-interface Poll {
-  id: string;
-  question: string;
-  options: { text: string; votes: number }[];
-  votedOptionIdx?: number;
-  creator: string;
-}
-
-interface SharedFile {
-  name: string;
-  size: string;
-  sender: string;
-  time: string;
-  fileUrl?: string;
-}
-
-interface FlyingReaction {
-  id: string;
-  emoji: string;
-  left: number; // percentage width
-  delay: number;
-}
-
-function VideoStream({ stream, muted }: { stream: MediaStream | null; muted?: boolean }) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-    }
-  }, [stream]);
-
-  if (!stream) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-theme-bg/30 text-theme-text-muted text-[10px] font-mono select-none">
-        No Feed Available
-      </div>
-    );
-  }
-
-  return (
-    <video
-      ref={videoRef}
-      autoPlay
-      playsInline
-      muted={muted}
-      className="w-full h-full object-cover rounded-xl"
-    />
-  );
-}
+// Import decomposed components and types
+import {
+  Participant,
+  ChatMessage,
+  TranscriptLine,
+  Poll,
+  SharedFile,
+  FlyingReaction,
+  ActionItem,
+  Decision,
+  TopicEntry,
+  WhiteboardFlowchart
+} from "./meeting/types";
+import MeetingHeader from "./meeting/MeetingHeader";
+import ParticipantGrid from "./meeting/ParticipantGrid";
+import MeetingControls from "./meeting/MeetingControls";
+import ChatPanel from "./meeting/ChatPanel";
+import ParticipantsPanel from "./meeting/ParticipantsPanel";
+import AIPanel from "./meeting/AIPanel";
+import NotesPanel from "./meeting/NotesPanel";
+import PollsPanel from "./meeting/PollsPanel";
+import FilesPanel from "./meeting/FilesPanel";
+import WhiteboardPanel from "./meeting/WhiteboardPanel";
+import PostMeetingScreen from "./meeting/PostMeetingScreen";
 
 export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; onLeave?: () => void }) {
   const { user } = useAuth();
@@ -1254,531 +1193,72 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
   // --- RENDER POST-MEETING SUMMARY PORTAL ---
   if (isPostMeeting) {
     return (
-      <div className="w-full max-w-6xl mx-auto p-6 md:p-10 glass-panel-heavy rounded-2xl border border-theme-glass-border shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-fade-in text-left">
-        {/* Post-Meeting Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-theme-border/20 pb-6 mb-8 gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-theme-text-primary flex items-center justify-center">
-              <span className="font-panchang font-extrabold text-theme-bg text-sm">N</span>
-            </div>
-            <div>
-              <h1 className="text-xl md:text-2xl font-display font-semibold text-theme-text-primary tracking-tight">
-                Global Edge Routing Negotiation
-              </h1>
-              <p className="text-xs text-theme-text-muted mt-1">
-                Meeting ended on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setIsPostMeeting(false);
-                setParticipants([
-                  { id: "you", name: `You (${userName})`, role: "Organizer", avatarColor: "from-zinc-200 to-zinc-400", isMuted: false, isVideoOff: false, isSharingScreen: false, isHandRaised: false, isPinned: false, ping: 14, audioLevel: 0, language: "en" },
-                  { id: "sophia", name: "Sophia Vance", role: "Co-Host", avatarColor: "from-indigo-500 to-cyan-400", isMuted: false, isVideoOff: false, isSharingScreen: false, isHandRaised: false, isPinned: false, ping: 18, audioLevel: 0, language: "en" },
-                  { id: "liam", name: "Liam Drake", role: "Participant", avatarColor: "from-purple-600 to-pink-500", isMuted: false, isVideoOff: false, isSharingScreen: false, isHandRaised: false, isPinned: false, ping: 22, audioLevel: 0, language: "en" },
-                  { id: "marcus", name: "Marcus Vance", role: "Participant", avatarColor: "from-amber-500 to-rose-500", isMuted: true, isVideoOff: false, isSharingScreen: false, isHandRaised: false, isPinned: false, ping: 15, audioLevel: 0, language: "en" }
-                ]);
-                if (onLeave) onLeave();
-              }}
-              className="px-5 py-3 glass-pill text-xs font-semibold uppercase tracking-wider text-theme-text-primary hover:bg-theme-text-primary/10 rounded-xl transition-all cursor-pointer"
-            >
-              Return to Lobby
-            </button>
-            <button
-              onClick={() => alert("Summary archive linked to workspace repository.")}
-              className="px-5 py-3 bg-theme-text-primary text-theme-bg text-xs font-semibold uppercase tracking-wider rounded-xl hover:opacity-90 shadow-lg transition-all cursor-pointer flex items-center gap-2"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Share Summary</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Post-Meeting Layout Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* Left / Center - Video playback and summaries */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            
-            {/* Playback Container */}
-            <div className="relative rounded-2xl border border-theme-border/20 bg-theme-surface/75 aspect-video overflow-hidden shadow-inner group">
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                <button className="w-16 h-16 rounded-full bg-theme-text-primary/15 hover:bg-theme-text-primary/25 border border-theme-border flex items-center justify-center transition-all cursor-pointer group-hover:scale-105">
-                  <Play className="w-6 h-6 text-theme-text-primary fill-theme-text-primary ml-1" />
-                </button>
-              </div>
-
-              {/* Fake timeline indicator */}
-              <div className="absolute bottom-4 left-4 right-4 bg-theme-bg/85 backdrop-blur-md border border-theme-border/30 rounded-xl p-3.5 flex items-center gap-4">
-                <span className="text-[10px] font-mono text-theme-text-secondary select-none">12:40</span>
-                <div className="flex-1 h-1 bg-theme-border/20 rounded-full relative">
-                  <div className="absolute left-0 top-0 bottom-0 w-1/3 bg-theme-text-primary rounded-full" />
-                  <div className="absolute left-1/3 -top-1 w-3 h-3 bg-theme-text-primary border border-theme-bg rounded-full cursor-pointer" />
-                  
-                  {/* Timeline markers */}
-                  <span className="absolute left-[15%] -top-1.5 w-1.5 h-4 bg-amber-400/80 rounded" title="Decision reached" />
-                  <span className="absolute left-[45%] -top-1.5 w-1.5 h-4 bg-cyan-400/80 rounded" title="MOM Highlight" />
-                  <span className="absolute left-[70%] -top-1.5 w-1.5 h-4 bg-pink-400/80 rounded" title="Question flagged" />
-                </div>
-                <span className="text-[10px] font-mono text-theme-text-muted select-none">46:12</span>
-              </div>
-            </div>
-
-            {/* AI Summary and MOM Report */}
-            <div className="glass-panel p-6 rounded-2xl flex flex-col gap-4 border-transparent">
-              <div className="flex items-center gap-2 text-theme-text-primary">
-                <Brain className="w-5 h-5 text-indigo-400" />
-                <h3 className="font-display font-semibold text-sm tracking-wider uppercase">
-                  AI Transcript Summary & Decisions
-                </h3>
-              </div>
-
-              <div className="text-xs text-theme-text-secondary leading-relaxed space-y-4 font-sans font-light">
-                <p>
-                  <strong>Summary of last 10 minutes:</strong> Discussions centered on confirming edge signaling pipelines using custom router clusters. Network latencies averaged <span className="font-mono text-theme-text-primary font-bold">16ms</span> with zero telemetry dropouts during peak loads.
-                </p>
-                
-                <div className="h-px bg-theme-border/25 my-4" />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Action items */}
-                  <div>
-                    <h4 className="font-semibold text-theme-text-primary mb-3 text-[11px] font-mono uppercase tracking-wider">
-                      Detected Action Items ({actionItems.length})
-                    </h4>
-                    <ul className="space-y-3">
-                      {actionItems.map((item) => (
-                        <li key={item.id} className="flex items-start gap-2.5">
-                          <CheckSquare className={`w-4 h-4 shrink-0 mt-0.5 ${item.done ? 'text-emerald-500' : 'text-theme-text-muted/60'}`} />
-                          <div>
-                            <p className={`leading-normal ${item.done ? 'line-through text-theme-text-muted/50' : 'text-theme-text-secondary'}`}>
-                              {item.text}
-                            </p>
-                            <span className="text-[9px] font-mono text-theme-text-muted uppercase tracking-wider block mt-0.5">
-                              Assignee: {item.assignee}
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Decisions */}
-                  <div>
-                    <h4 className="font-semibold text-theme-text-primary mb-3 text-[11px] font-mono uppercase tracking-wider">
-                      Key Decisions Resolved ({decisions.length})
-                    </h4>
-                    <ul className="space-y-3">
-                      {decisions.map((dec) => (
-                        <li key={dec.id} className="flex gap-2 text-theme-text-secondary leading-normal">
-                          <span className="text-emerald-500 font-bold mt-0.5">•</span>
-                          <div>
-                            <p>{dec.text}</p>
-                            <span className="text-[9px] font-mono text-theme-text-muted block mt-0.5">
-                              Logged at {dec.timestamp}
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Sidebar - Analytics, Transcripts and Attendees */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            
-            {/* Meeting Health Score */}
-            <div className="glass-panel p-5 rounded-2xl border-transparent flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-theme-border/25 pb-3">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-theme-text-muted">
-                  Meeting Analytics
-                </span>
-                <span className="text-xs font-mono text-emerald-500 font-bold">
-                  Health Index: {analyticsSummary.healthScore}%
-                </span>
-              </div>
-
-              {/* Metric stats */}
-              <div className="flex flex-col gap-3.5">
-                {[
-                  { label: "Aggregate Engagement", val: "92%" },
-                  { label: "Participation Balance", val: "Balanced (88%)" },
-                  { label: "Telemetry Stream Quality", val: "96% (A+ Level)" },
-                  { label: "Average Edge Latency", val: analyticsSummary.averagePing }
-                ].map((stat, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-xs">
-                    <span className="text-theme-text-secondary font-light">{stat.label}</span>
-                    <span className="font-mono text-theme-text-primary font-bold">{stat.val}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="h-px bg-theme-border/25 my-1" />
-
-              {/* Mood breakdown */}
-              <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-theme-text-muted mb-1">
-                  Mood Breakdown Indicator
-                </span>
-                <div className="h-2 rounded-full overflow-hidden bg-theme-border/20 flex">
-                  <div className="h-full bg-cyan-400" style={{ width: `${analyticsSummary.moodBreakdown.focused}%` }} title="Focused" />
-                  <div className="h-full bg-amber-400" style={{ width: `${analyticsSummary.moodBreakdown.excited}%` }} title="Excited" />
-                  <div className="h-full bg-theme-text-muted/40" style={{ width: `${analyticsSummary.moodBreakdown.silent}%` }} title="Silent" />
-                </div>
-                <div className="flex justify-between text-[8px] font-mono text-theme-text-muted mt-0.5">
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" /> Focused ({analyticsSummary.moodBreakdown.focused}%)</span>
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-amber-400 rounded-full" /> Excited ({analyticsSummary.moodBreakdown.excited}%)</span>
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-theme-text-muted/40 rounded-full" /> Silent ({analyticsSummary.moodBreakdown.silent}%)</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Attendance & Log List */}
-            <div className="glass-panel p-5 rounded-2xl border-transparent flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-theme-text-muted">
-                  Attendance List ({analyticsSummary.totalMembers})
-                </span>
-                <button
-                  onClick={() => alert("Attendance sheet downloaded as CSV.")}
-                  className="p-1 rounded hover:bg-theme-text-primary/5 text-theme-text-secondary hover:text-theme-text-primary"
-                  title="Download Attendance File"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
-                {participants.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-6 h-6 rounded-full bg-gradient-to-tr ${p.avatarColor} flex items-center justify-center text-[9px] font-bold text-black`}>
-                        {p.name.charAt(0)}
-                      </div>
-                      <span className="text-theme-text-secondary truncate max-w-[120px]">{p.name}</span>
-                    </div>
-                    <span className="text-[9px] font-mono text-theme-text-muted uppercase bg-theme-border/20 px-1.5 py-0.5 rounded">
-                      {p.role}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Download PDF Reports */}
-            <button
-              onClick={() => alert("Minutes of meeting exported as structured Markdown document.")}
-              className="w-full py-3.5 glass-pill text-xs font-semibold uppercase tracking-wider text-theme-text-primary hover:bg-theme-text-primary/5 border border-theme-border rounded-xl flex items-center justify-center gap-2 transition-all"
-            >
-              <FileText className="w-4 h-4" />
-              <span>Export Minutes of Meeting</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <PostMeetingScreen
+        roomCode={roomCode}
+        userName={userName}
+        actionItems={actionItems}
+        decisions={decisions}
+        participants={participants}
+        analyticsSummary={analyticsSummary}
+        onReturnToLobby={() => {
+          setIsPostMeeting(false);
+          setParticipants([
+            { id: "you", name: `You (${userName})`, role: "Organizer", avatarColor: "from-zinc-200 to-zinc-400", isMuted: false, isVideoOff: false, isSharingScreen: false, isHandRaised: false, isPinned: false, ping: 14, audioLevel: 0, language: "en" },
+            { id: "sophia", name: "Sophia Vance", role: "Co-Host", avatarColor: "from-indigo-500 to-cyan-400", isMuted: false, isVideoOff: false, isSharingScreen: false, isHandRaised: false, isPinned: false, ping: 18, audioLevel: 0, language: "en" },
+            { id: "liam", name: "Liam Drake", role: "Participant", avatarColor: "from-purple-600 to-pink-500", isMuted: false, isVideoOff: false, isSharingScreen: false, isHandRaised: false, isPinned: false, ping: 22, audioLevel: 0, language: "en" },
+            { id: "marcus", name: "Marcus Vance", role: "Participant", avatarColor: "from-amber-500 to-rose-500", isMuted: true, isVideoOff: false, isSharingScreen: false, isHandRaised: false, isPinned: false, ping: 15, audioLevel: 0, language: "en" }
+          ]);
+          if (onLeave) onLeave();
+        }}
+      />
     );
   }
 
   // --- MAIN MEETING ACTIVE ROOM VIEW ---
   return (
     <div className="relative w-full h-full max-w-none rounded-none border-none overflow-hidden flex flex-col text-left">
-      
-      {/* Top Header Navigation */}
-      <div className="px-5 py-3 border-b border-theme-border/30 flex items-center justify-between bg-theme-bg/25">
-        
-        {/* Left Section: Logo & Name */}
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-theme-text-primary flex items-center justify-center shadow-lg">
-            <span className="font-panchang font-extrabold text-theme-bg text-[11px] select-none">N</span>
-          </div>
-          <div className="h-4 w-px bg-theme-border/30" />
-          <div className="flex flex-col">
-            <span className="text-[11px] font-display font-semibold tracking-wider text-theme-text-primary uppercase leading-none">
-              Global Edge Negotiation
-            </span>
-            <span className="text-[8px] font-mono text-theme-text-muted tracking-widest uppercase mt-0.5">
-              Secure Nexus Matrix
-            </span>
-          </div>
-        </div>
-
-        {/* Center Section: Recording Status & Active Speaker Indicator */}
-        <div className="flex items-center gap-3">
-          {/* Recording Badge controls */}
-          {(isRecording || participants.find(p => p.id === "you")?.role === "Organizer") && (
-            <button
-              onClick={() => {
-                const isOrg = participants.find(p => p.id === "you")?.role === "Organizer";
-                if (!isOrg) return;
-                const nextStatus = recState === "recording" ? "idle" : "recording";
-                socketRef.current?.emit("recording_status_toggle", { roomCode, status: nextStatus });
-              }}
-              className={`flex items-center gap-2 px-2.5 py-1 rounded border outline-none select-none ${
-                recState === "recording"
-                  ? "bg-red-950/20 border-red-900/35 text-red-500 dark:text-red-300 animate-pulse cursor-pointer"
-                  : "bg-theme-border/20 border-theme-border/30 text-theme-text-muted hover:text-theme-text-primary cursor-pointer"
-              }`}
-              title={participants.find(p => p.id === "you")?.role === "Organizer" ? "Toggle Session Recording" : "Recording status indicator"}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${recState === "recording" ? "bg-red-500" : "bg-zinc-500"}`} />
-              <span className="font-mono text-[9px] font-bold tracking-widest uppercase">
-                {recState === "recording" ? `REC ${formatTime(recTime)}` : "START REC"}
-              </span>
-            </button>
-          )}
-          <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded bg-theme-border/20 border border-theme-border/30 font-mono text-[9px] text-theme-text-muted">
-            <Activity className="w-3.5 h-3.5 text-cyan-400" />
-            <span>MOOD: <span className="text-theme-text-primary font-bold">{mood}</span></span>
-          </div>
-        </div>
-
-        {/* Right Section: Telemetry, Latency & User Profile */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 font-mono text-[10px] text-theme-text-secondary select-none" title="WebSocket Network Latency">
-            <Wifi className="w-3.5 h-3.5 text-emerald-500" />
-            <span>{latency}ms</span>
-            <span className="text-[8px] text-emerald-500 font-bold bg-emerald-500/10 px-1 py-0.2 rounded uppercase">HQ</span>
-          </div>
-
-          <div className="h-4 w-px bg-theme-border/30" />
-
-          {/* User profile capsule */}
-          <div className="flex items-center gap-2 cursor-pointer" title="Your Settings">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-zinc-200 to-zinc-400 flex items-center justify-center text-[10px] font-bold text-black border border-theme-border/30">
-              {userName.charAt(0).toUpperCase()}
-            </div>
-            <span className="hidden sm:inline text-xs font-semibold text-theme-text-primary truncate max-w-[80px]">
-              {userName}
-            </span>
-          </div>
-
-          {/* Simulation Toggle Option */}
-          <button
-            onClick={() => setShowSimPanel(!showSimPanel)}
-            className={`p-1.5 rounded border transition-colors outline-none cursor-pointer ${showSimPanel ? 'bg-theme-text-primary text-theme-bg border-transparent' : 'bg-theme-text-primary/5 border-theme-border text-theme-text-secondary hover:text-theme-text-primary'}`}
-            title="Lobby/Simulator Controls"
-          >
-            <Sliders className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Dynamic Simulation Workspace (Floating Top) */}
-      <AnimatePresence>
-        {showSimPanel && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="w-full bg-theme-surface border-b border-theme-border/30 px-5 py-4 flex flex-wrap gap-4 items-center justify-between text-xs"
-          >
-            <div className="flex flex-col gap-1 text-left">
-              <span className="font-mono text-[10px] uppercase text-theme-text-muted tracking-wider">
-                Developer Simulation Controls
-              </span>
-              <p className="text-[10px] text-theme-text-secondary font-light">
-                Inspect grid scaling, hand gestures, and voice commands easily.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2.5">
-              {/* Participant layout mock triggers */}
-              <button
-                onClick={addMockParticipant}
-                className="px-3 py-1.5 glass-pill rounded-lg text-[10px] font-semibold text-theme-text-primary hover:bg-theme-text-primary/10 border-theme-border"
-              >
-                + Mock Member
-              </button>
-              <button
-                onClick={removeMockParticipant}
-                className="px-3 py-1.5 glass-pill rounded-lg text-[10px] font-semibold text-theme-text-primary hover:bg-theme-text-primary/10 border-theme-border"
-              >
-                - Remove Member
-              </button>
-
-              <div className="w-px h-5 bg-theme-border/30 my-auto" />
-
-              {/* Hand gestures */}
-              <div className="flex items-center gap-1 bg-theme-border/20 px-2 py-1 rounded-lg">
-                <span className="text-[9px] font-mono uppercase text-theme-text-muted mr-1.5">Gestures:</span>
-                {["Thumbs Up", "Peace Sign", "Wave", "Double Palm", "Finger Heart"].map((gst) => (
-                  <button
-                    key={gst}
-                    onClick={() => simulateGesture(gst)}
-                    className="px-2 py-1 bg-theme-bg hover:bg-theme-elevated text-[9px] font-medium text-theme-text-secondary rounded border border-theme-border"
-                  >
-                    {gst}
-                  </button>
-                ))}
-              </div>
-
-              {/* Voice commands */}
-              <div className="flex items-center gap-1 bg-theme-border/20 px-2 py-1 rounded-lg">
-                <span className="text-[9px] font-mono uppercase text-theme-text-muted mr-1.5">Voice Commands:</span>
-                {["Mute Me", "Unmute Me", "Turn Camera Off", "Share Screen", "Stop Share"].map((vc) => (
-                  <button
-                    key={vc}
-                    onClick={() => simulateVoiceCommand(vc)}
-                    className="px-2 py-1 bg-theme-bg hover:bg-theme-elevated text-[9px] font-medium text-theme-text-secondary rounded border border-theme-border"
-                  >
-                    "{vc}"
-                  </button>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <MeetingHeader
+        roomCode={roomCode}
+        userName={userName}
+        recState={recState}
+        recTime={recTime}
+        latency={latency}
+        mood={mood}
+        showSimPanel={showSimPanel}
+        onToggleSimPanel={() => setShowSimPanel(!showSimPanel)}
+        onToggleRecording={() => {
+          const isOrg = participants.find((p) => p.id === "you")?.role === "Organizer";
+          if (!isOrg) return;
+          const nextStatus = recState === "recording" ? "idle" : "recording";
+          socketRef.current?.emit("recording_status_toggle", { roomCode, status: nextStatus });
+        }}
+        onAddMockParticipant={addMockParticipant}
+        onRemoveMockParticipant={removeMockParticipant}
+        onSimulateGesture={simulateGesture}
+        onSimulateVoiceCommand={simulateVoiceCommand}
+        participants={participants}
+      />
 
       {/* Main Body Matrix: Adaptive Video Grid + Sidebar (if open) */}
       <div className="flex-1 flex flex-col lg:flex-row relative min-h-0 overflow-hidden">
         
         {/* Left Side: Adaptive Video Grid and Subtitle Overlay */}
         <div className="flex-1 flex flex-col p-4 bg-gradient-to-b from-transparent to-theme-bg/10 overflow-y-auto">
-          
-          {/* Main Adaptive Video Grid */}
-          <div className="flex-1 flex flex-col justify-center">
-            <div className={`grid gap-4 w-full transition-all duration-500 ease-in-out ${gridLayoutClass}`}>
-              <AnimatePresence mode="popLayout">
-                {participants.map((p) => {
-                  const isActiveSpeaker = p.id === activeSpeakerId;
-                  const isPinned = p.id === pinnedSpeakerId;
-
-                  return (
-                    <motion.div
-                      key={p.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ type: "spring", stiffness: 120, damping: 18 }}
-                      className={`relative rounded-2xl border bg-theme-surface/75 overflow-hidden flex flex-col justify-between p-4 shadow-xl transition-all aspect-video duration-300 group ${
-                        isActiveSpeaker
-                          ? "border-white/50 shadow-[0_0_20px_rgba(255,255,255,0.06)]"
-                          : "border-theme-border/20"
-                      }`}
-                    >
-                      {/* Ambient Glowing speaker standard */}
-                      {isActiveSpeaker && (
-                        <div className="absolute inset-0 bg-radial-glow opacity-30 pointer-events-none" />
-                      )}
-
-                      {/* Video Card Header: Name & badges */}
-                      <div className="flex items-start justify-between z-10 select-none">
-                        <div className="flex flex-wrap gap-1.5 items-center">
-                          <span className="text-xs font-semibold text-theme-text-primary bg-theme-bg/60 backdrop-blur px-2.5 py-1 rounded-lg border border-theme-border/20">
-                            {p.name}
-                          </span>
-                          
-                          {p.role !== "Participant" && (
-                            <span className="text-[8px] font-mono uppercase tracking-wider font-extrabold text-theme-bg bg-theme-text-primary px-1.5 py-0.5 rounded">
-                              {p.role}
-                            </span>
-                          )}
-
-                          {isPinned && (
-                            <span className="text-[8px] font-mono text-cyan-400 bg-cyan-950/20 border border-cyan-900/30 px-1.5 py-0.5 rounded uppercase">
-                              Pinned
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Hand raised status */}
-                        {p.isHandRaised && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="p-1.5 rounded-lg bg-amber-500 text-black border border-amber-400/20 flex items-center justify-center"
-                          >
-                            <Hand className="w-3.5 h-3.5 fill-black" />
-                          </motion.div>
-                        )}
-                      </div>
-
-                      {/* Video Feed or Screenshare rendering */}
-                      <div className="flex-1 flex items-center justify-center relative my-2 overflow-hidden rounded-xl bg-theme-bg/30 border border-theme-border/10">
-                        {p.isVideoOff && !p.isSharingScreen ? (
-                          // Large Avatar fallback
-                          <div className="relative">
-                            {/* Speaking aura ripples */}
-                            {isActiveSpeaker && p.audioLevel > 0 && (
-                              <motion.div
-                                animate={{ scale: [1, 1.3, 1] }}
-                                transition={{ repeat: Infinity, duration: 2 }}
-                                className="absolute inset-[-10px] rounded-full border border-theme-border/30 pointer-events-none"
-                              />
-                            )}
-
-                            <div className={`w-16 h-16 rounded-full bg-gradient-to-tr ${p.avatarColor} flex items-center justify-center text-xl font-bold text-black border border-theme-border/30`}>
-                              {p.name.charAt(0)}
-                            </div>
-                          </div>
-                        ) : (
-                          // Real WebRTC Video Tag Stream
-                          <VideoStream
-                            stream={p.id === "you" ? (isScreenSharing ? screenStreamRef.current : localStream) : peerStreams[p.id]}
-                            muted={p.id === "you"}
-                          />
-                        )}
-                      </div>
-
-                      {/* Video Card Footer Info and Hover Actions */}
-                      <div className="flex justify-between items-center z-10">
-                        {/* Audio visual level indicators */}
-                        <div className="flex items-center gap-1.5">
-                          {p.isMuted ? (
-                            <MicOff className="w-3.5 h-3.5 text-red-500" />
-                          ) : (
-                            <div className="flex items-center gap-0.5 h-3 select-none">
-                              {[1, 2, 3].map((bar) => (
-                                <div
-                                  key={bar}
-                                  className={`w-0.5 rounded bg-emerald-500 transition-all ${
-                                    isActiveSpeaker && p.audioLevel > 0
-                                      ? "h-3 animate-pulse"
-                                      : "h-1"
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                          )}
-                          <span className="font-mono text-[9px] text-theme-text-muted">{p.ping}ms</span>
-                        </div>
-
-                        {/* Card Hover Options */}
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <button
-                            onClick={() => setPinnedSpeakerId(isPinned ? null : p.id)}
-                            className="p-1 rounded bg-theme-bg/60 border border-theme-border/20 text-theme-text-secondary hover:text-theme-text-primary text-[10px]"
-                            title="Pin Video Stream"
-                          >
-                            <Layout className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => alert(`Showing profiles for ${p.name}`)}
-                            className="p-1 rounded bg-theme-bg/60 border border-theme-border/20 text-theme-text-secondary hover:text-theme-text-primary text-[10px]"
-                            title="View Profile Details"
-                          >
-                            <Users className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          </div>
+          <ParticipantGrid
+            participants={participants}
+            activeSpeakerId={activeSpeakerId}
+            pinnedSpeakerId={pinnedSpeakerId}
+            isScreenSharing={isScreenSharing}
+            localStream={localStream}
+            screenStream={screenStreamRef.current}
+            peerStreams={peerStreams}
+            gridLayoutClass={gridLayoutClass}
+            onSetPinnedSpeaker={setPinnedSpeakerId}
+          />
 
           {/* Subtitles & Live Caption Overlay */}
           {liveCaptionText && (
-            <div className="mt-4 glass-panel rounded-xl p-3.5 flex items-start gap-3 border-transparent hover:bg-theme-surface/30 transition-all max-w-4xl mx-auto w-full">
+            <div className="mt-4 glass-panel rounded-xl p-3.5 flex items-start gap-3 border-transparent hover:bg-theme-surface/30 transition-all max-w-4xl mx-auto w-full shrink-0">
               <span className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 animate-pulse shrink-0" />
               <div className="flex-1 text-left">
                 <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-400 block mb-0.5">
@@ -1812,7 +1292,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
               className="w-full lg:w-[340px] border-t lg:border-t-0 lg:border-l border-theme-border/20 flex flex-col bg-theme-bg/10 max-h-[640px]"
             >
               {/* Sidebar Header Tab Selectors */}
-              <div className="flex border-b border-theme-border/20 bg-theme-surface/40 p-2 overflow-x-auto gap-1">
+              <div className="flex border-b border-theme-border/20 bg-theme-surface/40 p-2 overflow-x-auto gap-1 shrink-0">
                 {[
                   { id: "chat", label: "Chat", icon: MessageSquare },
                   { id: "members", label: "Members", icon: Users },
@@ -1842,486 +1322,83 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
 
               {/* Sidebar Content Switchboard */}
               <div className="flex-1 overflow-y-auto p-4 flex flex-col min-h-[300px]">
-                
-                {/* 1. MEMBERS LIST PANEL */}
-                {activeTab === "members" && (
-                  <div className="flex flex-col gap-4 text-left">
-                    <div className="flex items-center justify-between font-mono text-[10px] uppercase text-theme-text-muted">
-                      <span>Participants List</span>
-                      <span>Total: {participants.length}</span>
-                    </div>
-
-                    {/* Join request approvals queue */}
-                    {joinRequests.length > 0 && (
-                      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex flex-col gap-2">
-                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-amber-400 font-bold uppercase">
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          <span>Approve Join Request</span>
-                        </div>
-                        {joinRequests.map((req) => (
-                          <div key={req.id} className="flex justify-between items-center bg-theme-bg/60 p-2 rounded-lg text-xs">
-                            <span className="text-theme-text-primary font-medium">{req.name}</span>
-                            <div className="flex gap-1.5">
-                              <button
-                                onClick={() => setJoinRequests([])}
-                                className="px-2 py-1 bg-theme-text-primary text-theme-bg rounded text-[10px] font-semibold cursor-pointer"
-                              >
-                                Admit
-                              </button>
-                              <button
-                                onClick={() => setJoinRequests([])}
-                                className="px-2 py-1 border border-theme-border hover:bg-theme-text-primary/5 rounded text-[10px] text-theme-text-secondary cursor-pointer"
-                              >
-                                Deny
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex flex-col gap-2">
-                      {participants.map((p) => (
-                        <div key={p.id} className="p-2.5 rounded-xl bg-theme-surface/40 hover:bg-theme-surface/65 border border-theme-border/20 flex items-center justify-between transition-colors">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-7 h-7 rounded-full bg-gradient-to-tr ${p.avatarColor} flex items-center justify-center text-[10px] font-bold text-black border border-theme-border/30`}>
-                              {p.name.charAt(0)}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-semibold text-theme-text-primary truncate max-w-[120px]">{p.name}</span>
-                              <span className="text-[9px] font-mono text-theme-text-muted uppercase mt-0.5">{p.role}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            {/* Mute toggle option */}
-                            <button
-                              onClick={() => {
-                                setParticipants((prev) =>
-                                  prev.map((memb) =>
-                                    memb.id === p.id ? { ...memb, isMuted: !memb.isMuted } : memb
-                                  )
-                                );
-                              }}
-                              className={`p-1.5 rounded hover:bg-theme-text-primary/10 transition-colors cursor-pointer ${p.isMuted ? 'text-red-500' : 'text-theme-text-secondary/70'}`}
-                              title={p.isMuted ? "Unmute Participant" : "Mute Participant"}
-                            >
-                              {p.isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                            </button>
-
-                            {/* Remove button */}
-                            {p.id !== "you" && (
-                              <button
-                                onClick={() => {
-                                  setParticipants((prev) => prev.filter((memb) => memb.id !== p.id));
-                                }}
-                                className="p-1.5 rounded hover:bg-red-500/10 text-theme-text-secondary/50 hover:text-red-500 transition-colors cursor-pointer"
-                                title="Remove Participant"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. CHAT STREAM PANEL */}
                 {activeTab === "chat" && (
-                  <div className="flex-1 flex flex-col gap-3 h-full justify-between">
-                    <div className="flex items-center justify-between font-mono text-[10px] uppercase text-theme-text-muted border-b border-theme-border/10 pb-2">
-                      <span>Secure Chat Feed</span>
-                      <button
-                        onClick={() => {
-                          // Collapse chat to AI notes summary!
-                          const chatTexts = chatMessages.map((m) => `${m.sender}: ${m.text}`).join("\n");
-                          setMeetingNotes((prev) => `${prev}\n\n## CHAT SUMMARY\n${chatTexts}`);
-                          alert("AI chat logs summarized to Notes tab!");
-                        }}
-                        className="text-[9px] text-cyan-400 hover:underline cursor-pointer"
-                        title="AI Summarize Chat Logs"
-                      >
-                        AI Summary
-                      </button>
-                    </div>
-
-                    {/* Messages container */}
-                    <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[360px]">
-                      {chatMessages.map((msg) => (
-                        <div
-                          key={msg.id}
-                          className={`flex flex-col p-2.5 rounded-xl border leading-relaxed text-xs ${
-                            msg.isMe
-                              ? "bg-theme-text-primary/5 border-theme-border/30 ml-6"
-                              : "bg-theme-surface/40 border-theme-border/20 mr-6"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-1.5 border-b border-theme-border/5 pb-1">
-                            <span className="font-semibold text-theme-text-primary text-[11px] truncate max-w-[120px]">
-                              {msg.sender}
-                            </span>
-                            <span className="text-[9px] font-mono text-theme-text-muted">{msg.time}</span>
-                          </div>
-
-                          {msg.isCode ? (
-                            <pre className="p-2 bg-black/60 rounded font-mono text-[9px] text-emerald-400 overflow-x-auto">
-                              <code>{msg.text}</code>
-                            </pre>
-                          ) : (
-                            <p className="text-theme-text-secondary text-[11px] leading-normal">{msg.text}</p>
-                          )}
-                        </div>
-                      ))}
-                      <div ref={chatEndRef} />
-                    </div>
-
-                    {/* Form field */}
-                    <form onSubmit={handleSendChat} className="flex gap-2 border-t border-theme-border/25 pt-2">
-                      <input
-                        type="text"
-                        value={newMsgText}
-                        onChange={(e) => setNewMsgText(e.target.value)}
-                        placeholder="Type message, use @AI..."
-                        className="flex-1 bg-theme-text-primary/5 hover:bg-theme-text-primary/8 focus:bg-theme-text-primary/10 border border-theme-border/45 focus:border-theme-text-primary/30 rounded-lg px-3 py-2 text-xs text-theme-text-primary placeholder-theme-text-muted/40 outline-none transition-colors"
-                      />
-                      <button
-                        type="submit"
-                        className="p-2 bg-theme-text-primary hover:opacity-90 text-theme-bg rounded-lg transition-colors flex items-center justify-center cursor-pointer outline-none"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
-                    </form>
-                  </div>
+                  <ChatPanel
+                    messages={chatMessages}
+                    newMsgText={newMsgText}
+                    onChangeText={setNewMsgText}
+                    onSend={handleSendChat}
+                  />
                 )}
-
-                {/* 3. AI TRANSCRIBER & ASSISTANT PANEL */}
+                {activeTab === "members" && (
+                  <ParticipantsPanel
+                    participants={participants}
+                    joinRequests={joinRequests}
+                    onAdmit={(id) => setJoinRequests([])}
+                    onDeny={(id) => setJoinRequests([])}
+                    onToggleMute={(id) => {
+                      setParticipants((prev) =>
+                        prev.map((memb) =>
+                          memb.id === id ? { ...memb, isMuted: !memb.isMuted } : memb
+                        )
+                      );
+                    }}
+                    onKick={(id) => {
+                      setParticipants((prev) => prev.filter((memb) => memb.id !== id));
+                    }}
+                  />
+                )}
                 {activeTab === "ai" && (
-                  <div className="flex flex-col gap-5 text-left text-xs font-sans">
-                    {/* Live transcripts feed */}
-                    <div className="flex flex-col gap-2">
-                      <span className="font-mono text-[10px] uppercase text-theme-text-muted border-b border-theme-border/10 pb-1 block">
-                        Live Transcription Log
-                      </span>
-                      <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1 bg-theme-bg/30 p-2.5 rounded-xl border border-theme-border/25">
-                        {transcript.map((line, idx) => (
-                          <div key={idx} className="leading-relaxed border-b border-theme-border/5 pb-2">
-                            <div className="flex justify-between text-[9px] font-mono text-cyan-400 mb-0.5">
-                              <span>{line.speaker}</span>
-                              <span>{line.timestamp}</span>
-                            </div>
-                            <p className="text-theme-text-secondary text-[11px]">"{line.text}"</p>
-                            {line.translation && (
-                              <p className="text-[10px] text-cyan-400 italic mt-0.5">↳ Translation: "{line.translation}"</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Detected Actions and Timeline */}
-                    <div className="flex flex-col gap-2.5">
-                      <span className="font-mono text-[10px] uppercase text-theme-text-muted border-b border-theme-border/10 pb-1 block">
-                        AI Real-Time Highlights
-                      </span>
-                      
-                      <div className="grid grid-cols-1 gap-2.5">
-                        <div className="p-3 rounded-xl border border-theme-border/20 bg-theme-surface/50">
-                          <span className="font-semibold text-theme-text-primary font-mono text-[10px] block mb-1">
-                            Action Items Detected:
-                          </span>
-                          <ul className="space-y-1.5 text-[11px] text-theme-text-secondary">
-                            {actionItems.slice(0, 2).map((a, i) => (
-                              <li key={i} className="flex gap-1.5">
-                                <span className="text-pink-500 font-bold shrink-0">•</span>
-                                <span>{a.text} ({a.assignee})</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        <div className="p-3 rounded-xl border border-theme-border/20 bg-theme-surface/50">
-                          <span className="font-semibold text-theme-text-primary font-mono text-[10px] block mb-1">
-                            Decisions Registered:
-                          </span>
-                          <ul className="space-y-1.5 text-[11px] text-theme-text-secondary">
-                            {decisions.map((d, i) => (
-                              <li key={i} className="flex gap-1.5">
-                                <span className="text-emerald-500 font-bold shrink-0">•</span>
-                                <span>{d.text}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex flex-col gap-2">
-                      <button
-                        onClick={() => {
-                          const momText = `MINUTES OF MEETING\n\n- Project Duration: 46m\n- Presenters: Sophia, Liam, Marcus\n\n- Decisions resolved: Socket.IO Router, AES-256 Client Encryptions.`;
-                          alert("AI minutes generated and appended to Notes tab!");
-                          setMeetingNotes((prev) => `${prev}\n\n${momText}`);
-                        }}
-                        className="w-full py-2.5 bg-theme-text-primary text-theme-bg font-semibold rounded-lg hover:opacity-90 flex items-center justify-center gap-1.5 cursor-pointer uppercase font-mono text-[10px] tracking-wider"
-                      >
-                        <Brain className="w-3.5 h-3.5" />
-                        <span>Generate MOM Minutes</span>
-                      </button>
-                    </div>
-                  </div>
+                  <AIPanel
+                    transcript={transcript}
+                    actionItems={actionItems}
+                    decisions={decisions}
+                    onGenerateMOM={() => {
+                      const momText = `MINUTES OF MEETING\n\n- Project Duration: 46m\n- Presenters: Sophia, Liam, Marcus\n\n- Decisions resolved: Socket.IO Router, AES-256 Client Encryptions.`;
+                      alert("AI minutes generated and appended to Notes tab!");
+                      setMeetingNotes((prev) => `${prev}\n\n${momText}`);
+                    }}
+                  />
                 )}
-
-                {/* 4. MEETING NOTES WORKSPACE */}
                 {activeTab === "notes" && (
-                  <div className="flex-1 flex flex-col gap-3 h-full justify-between text-left">
-                    <div className="flex items-center justify-between font-mono text-[10px] uppercase text-theme-text-muted">
-                      <span>Shared Workspace Notes</span>
-                      <button
-                        onClick={runSmartNoteify}
-                        className="text-[9px] text-cyan-400 hover:underline cursor-pointer flex items-center gap-1"
-                        title="AI Summarize Transcript to Notes"
-                      >
-                        <Sparkle className="w-3 h-3" />
-                        <span>Smart Noteify</span>
-                      </button>
-                    </div>
-
-                    <textarea
-                      value={meetingNotes}
-                      onChange={(e) => setMeetingNotes(e.target.value)}
-                      className="flex-1 bg-theme-text-primary/5 border border-theme-border/20 rounded-xl p-3 font-mono text-[10.5px] text-theme-text-secondary placeholder-theme-text-muted/40 focus:border-theme-text-primary/30 outline-none resize-none leading-relaxed min-h-[300px]"
-                    />
-                  </div>
+                  <NotesPanel
+                    meetingNotes={meetingNotes}
+                    onChangeNotes={setMeetingNotes}
+                    onSmartNoteify={runSmartNoteify}
+                  />
                 )}
-
-                {/* 5. ACTIVE POLLS PANEL */}
                 {activeTab === "polls" && (
-                  <div className="flex flex-col gap-4 text-left">
-                    <span className="font-mono text-[10px] uppercase text-theme-text-muted border-b border-theme-border/10 pb-1">
-                      Active Workspace Polls
-                    </span>
-
-                    {/* Poll list */}
-                    <div className="flex flex-col gap-4 max-h-[220px] overflow-y-auto pr-1">
-                      {polls.map((poll) => {
-                        const totalVotes = poll.options.reduce((sum, opt) => sum + opt.votes, 0);
-
-                        return (
-                          <div key={poll.id} className="p-3 bg-theme-surface/50 border border-theme-border/25 rounded-xl flex flex-col gap-2">
-                            <h4 className="text-xs font-semibold text-theme-text-primary leading-normal">{poll.question}</h4>
-                            <span className="text-[9px] text-theme-text-muted font-mono block">By {poll.creator}</span>
-                            
-                            <div className="flex flex-col gap-2 mt-1">
-                              {poll.options.map((opt, optIdx) => {
-                                const percent = totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0;
-                                const isVoted = poll.votedOptionIdx === optIdx;
-
-                                return (
-                                  <div
-                                    key={optIdx}
-                                    onClick={() => poll.votedOptionIdx === undefined && handleVote(poll.id, optIdx)}
-                                    className={`relative p-2 rounded-lg border text-[11px] leading-normal transition-all ${
-                                      poll.votedOptionIdx === undefined ? 'cursor-pointer hover:bg-theme-text-primary/5' : ''
-                                    } ${isVoted ? 'border-cyan-500 bg-cyan-950/15' : 'border-theme-border/15 bg-theme-bg/30'}`}
-                                  >
-                                    {/* Percent fill bar */}
-                                    <div
-                                      className="absolute left-0 top-0 bottom-0 bg-theme-text-primary/5 transition-all rounded-lg"
-                                      style={{ width: `${percent}%` }}
-                                    />
-                                    
-                                    <div className="relative flex justify-between z-10">
-                                      <span>{opt.text}</span>
-                                      <span className="font-mono font-semibold text-theme-text-primary">{percent}% ({opt.votes})</span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Create new Poll Creator form */}
-                    <div className="border-t border-theme-border/25 pt-3 mt-1 flex flex-col gap-3">
-                      <span className="font-mono text-[9px] uppercase text-cyan-400 font-bold tracking-wider">
-                        Create Meeting Poll
-                      </span>
-                      <input
-                        type="text"
-                        placeholder="Poll Question?"
-                        value={newPollQuestion}
-                        onChange={(e) => setNewPollQuestion(e.target.value)}
-                        className="bg-theme-text-primary/5 border border-theme-border/30 rounded-lg px-2.5 py-2 text-xs text-theme-text-primary outline-none"
-                      />
-                      <div className="flex flex-col gap-1.5">
-                        <input
-                          type="text"
-                          placeholder="Option 1"
-                          value={newPollOptions[0]}
-                          onChange={(e) => {
-                            const clone = [...newPollOptions];
-                            clone[0] = e.target.value;
-                            setNewPollOptions(clone);
-                          }}
-                          className="bg-theme-text-primary/5 border border-theme-border/30 rounded-lg px-2.5 py-1.5 text-xs text-theme-text-primary outline-none"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Option 2"
-                          value={newPollOptions[1]}
-                          onChange={(e) => {
-                            const clone = [...newPollOptions];
-                            clone[1] = e.target.value;
-                            setNewPollOptions(clone);
-                          }}
-                          className="bg-theme-text-primary/5 border border-theme-border/30 rounded-lg px-2.5 py-1.5 text-xs text-theme-text-primary outline-none"
-                        />
-                      </div>
-                      <button
-                        onClick={createPoll}
-                        className="py-2 bg-theme-text-primary text-theme-bg font-semibold rounded-lg hover:opacity-90 transition-opacity text-[10px] uppercase font-mono tracking-wider cursor-pointer"
-                      >
-                        Deploy Poll
-                      </button>
-                    </div>
-                  </div>
+                  <PollsPanel
+                    polls={polls}
+                    newPollQuestion={newPollQuestion}
+                    onChangeQuestion={setNewPollQuestion}
+                    newPollOptions={newPollOptions}
+                    onChangeOptions={setNewPollOptions}
+                    onVote={handleVote}
+                    onCreatePoll={createPoll}
+                  />
                 )}
-
-                {/* 6. SHARED FILES TAB */}
                 {activeTab === "files" && (
-                  <div className="flex flex-col gap-4 text-left">
-                    <div className="flex justify-between items-center font-mono text-[10px] uppercase text-theme-text-muted">
-                      <span>Shared Documents</span>
-                      <span>Count: {sharedFiles.length}</span>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      {sharedFiles.map((f, i) => (
-                        <div key={i} className="p-3 bg-theme-surface/50 border border-theme-border/20 rounded-xl flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-indigo-400" />
-                            <div className="flex flex-col">
-                              <span className="text-theme-text-primary font-medium truncate max-w-[130px]" title={f.name}>
-                                {f.name}
-                              </span>
-                              <span className="text-[9px] font-mono text-theme-text-muted">
-                                {f.size} • {f.sender}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <a
-                            href={f.fileUrl}
-                            download={f.name}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded hover:bg-theme-text-primary/10 text-theme-text-secondary hover:text-theme-text-primary cursor-pointer animate-fade-in"
-                            title="Download Document"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="border border-dashed border-theme-border hover:border-theme-text-primary transition-colors py-6 text-center rounded-xl cursor-pointer bg-theme-bg/20 flex flex-col items-center justify-center gap-1.5"
-                    >
-                      <Paperclip className="w-5 h-5 text-theme-text-muted" />
-                      <span className="text-[10px] text-theme-text-secondary font-medium">Click to upload document file</span>
-                      <span className="text-[8px] font-mono text-theme-text-muted">Max size: 100MB</span>
-                    </div>
-                  </div>
+                  <FilesPanel
+                    sharedFiles={sharedFiles}
+                    onFileUpload={handleFileUpload}
+                  />
                 )}
-
-                {/* 7. AI WHITEBOARD CANVAS */}
                 {activeTab === "whiteboard" && (
-                  <div className="flex-1 flex flex-col gap-3 h-full justify-between text-left relative">
-                    <div className="flex items-center justify-between font-mono text-[10px] uppercase text-theme-text-muted">
-                      <span>AI Diagram Canvas</span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={cleanToFlowchart}
-                          className="text-[9px] text-cyan-400 hover:underline cursor-pointer font-bold uppercase tracking-wider"
-                          title="Generate flow diagram blocks from sketch lines"
-                        >
-                          Clean Diagram
-                        </button>
-                        <button
-                          onClick={clearWhiteboard}
-                          className="text-[9px] text-red-500 hover:underline cursor-pointer font-bold uppercase tracking-wider"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Colors and brush width options */}
-                    <div className="flex items-center justify-between bg-theme-surface/50 border border-theme-border/20 px-2 py-1.5 rounded-lg text-[9px] gap-2">
-                      <div className="flex gap-1">
-                        {["#FFFFFF", "#EC4899", "#3B82F6", "#10B981", "#F59E0B"].map((c) => (
-                          <span
-                            key={c}
-                            onClick={() => setDrawingColor(c)}
-                            className="w-3.5 h-3.5 rounded-full border cursor-pointer block"
-                            style={{ backgroundColor: c, borderColor: drawingColor === c ? "#FFFFFF" : "transparent" }}
-                          />
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-theme-text-secondary">
-                        <span>Brush:</span>
-                        <input
-                          type="range"
-                          min="1"
-                          max="8"
-                          value={lineWidth}
-                          onChange={(e) => setLineWidth(Number(e.target.value))}
-                          className="w-16 accent-theme-text-primary"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Canvas drawing container */}
-                    <div className="flex-1 relative rounded-xl border border-theme-border bg-black/40 overflow-hidden min-h-[220px]">
-                      <canvas
-                        ref={canvasRef}
-                        width={300}
-                        height={250}
-                        onMouseDown={startDrawing}
-                        onMouseMove={draw}
-                        onMouseUp={stopDrawing}
-                        onMouseLeave={stopDrawing}
-                        className="absolute inset-0 cursor-crosshair"
-                      />
-
-                      {/* Clean flowchart overlays overlaying coordinates */}
-                      {whiteboardFlowcharts.map((box) => (
-                        <div
-                          key={box.id}
-                          style={{ left: box.x, top: box.y }}
-                          className={`absolute p-2 border text-[8px] font-mono rounded shadow bg-theme-bg/90 select-none z-10 max-w-[80px] text-center leading-tight ${
-                            box.type === "decision" ? "border-amber-500 text-amber-400" : "border-emerald-500 text-emerald-400"
-                          }`}
-                        >
-                          {box.label}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <WhiteboardPanel
+                    canvasRef={canvasRef}
+                    drawingColor={drawingColor}
+                    lineWidth={lineWidth}
+                    whiteboardFlowcharts={whiteboardFlowcharts}
+                    onSetDrawingColor={setDrawingColor}
+                    onSetLineWidth={setLineWidth}
+                    onCleanToFlowchart={cleanToFlowchart}
+                    onClearWhiteboard={clearWhiteboard}
+                    onStartDrawing={startDrawing}
+                    onDraw={draw}
+                    onStopDrawing={stopDrawing}
+                  />
                 )}
-
               </div>
             </motion.div>
           )}
@@ -2377,248 +1454,41 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
         )}
       </AnimatePresence>
 
-      {/* Bottom Floating Control Dock (Glassmorphism layout) */}
-      <div className="px-5 py-4 border-t border-theme-border/30 flex flex-wrap items-center justify-between bg-theme-bg/40 gap-4">
-        
-        {/* Left Side indicators */}
-        <div className="hidden sm:flex items-center gap-2 font-mono text-[10px] text-theme-text-muted">
-          <span>SPEAKER FOCUS:</span>
-          <span className="text-theme-text-primary font-bold">
-            {participants.find((p) => p.id === activeSpeakerId)?.name || "System Core"}
-          </span>
-        </div>
-
-        {/* Center Panel: Main Dock Controls */}
-        <div className="flex items-center gap-3.5 mx-auto sm:mx-0 relative">
-          {/* Mute Mic button */}
-          <button
-            onClick={toggleMic}
-            className={`p-3 rounded-full border cursor-pointer transition-all duration-300 outline-none ${
-              isMicOn
-                ? "bg-theme-text-primary/5 border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10"
-                : "bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20 animate-pulse"
-            }`}
-            title={isMicOn ? "Mute Microphone" : "Unmute Microphone"}
-          >
-            {isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-          </button>
- 
-          {/* Toggle Camera */}
-          <button
-            onClick={toggleCam}
-            className={`p-3 rounded-full border cursor-pointer transition-all duration-300 outline-none ${
-              isCamOn
-                ? "bg-theme-text-primary/5 border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10"
-                : "bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20"
-            }`}
-            title={isCamOn ? "Disable Web Camera" : "Enable Web Camera"}
-          >
-            {isCamOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-          </button>
- 
-          {/* Toggle Share screen */}
-          <button
-            onClick={toggleScreenShare}
-            className={`p-3 rounded-full border cursor-pointer transition-all duration-300 outline-none ${
-              isScreenSharing
-                ? "bg-theme-text-primary text-theme-bg border-transparent shadow-[0_0_15px_rgba(255,255,255,0.25)]"
-                : "bg-theme-text-primary/5 border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10"
-            }`}
-            title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen Stream"}
-          >
-            <MonitorUp className="w-4 h-4" />
-          </button>
- 
-          {/* Hand raise */}
-          <button
-            onClick={toggleHandRaise}
-            className={`p-3 rounded-full border cursor-pointer transition-all duration-300 outline-none ${
-              isHandRaised
-                ? "bg-amber-500 text-black border-transparent shadow-[0_0_15px_rgba(245,158,11,0.3)] animate-bounce"
-                : "bg-theme-text-primary/5 border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10"
-            }`}
-            title={isHandRaised ? "Lower Hand" : "Raise Hand"}
-          >
-            <Hand className="w-4 h-4" />
-          </button>
-
-          {/* Emojis trigger reaction menu */}
-          <div className="relative group">
-            <button
-              className="p-3 rounded-full bg-theme-text-primary/5 border border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10 cursor-pointer outline-none"
-              title="React Emojis"
-            >
-              <Smile className="w-4 h-4" />
-            </button>
-            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 hidden group-hover:flex bg-theme-elevated border border-theme-border p-2.5 rounded-xl gap-2 shadow-2xl items-center z-50">
-              {["👍", "👏", "❤️", "🚀", "🔥", "🎉", "😮", "👋"].map((emj) => (
-                <button
-                  key={emj}
-                  onClick={() => triggerReaction(emj)}
-                  className="text-lg hover:scale-125 transition-transform cursor-pointer"
-                >
-                  {emj}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="w-px h-6 bg-theme-border/30 mx-1" />
-
-          {/* Sidebar toggler */}
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className={`p-3 rounded-full border cursor-pointer transition-colors outline-none ${
-              isSidebarOpen ? 'bg-theme-text-primary text-theme-bg border-transparent' : 'bg-theme-text-primary/5 border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10'
-            }`}
-            title="Toggle Right Sidebar Workspace"
-          >
-            <Layout className="w-4 h-4" />
-          </button>
-
-          {/* Options Dropdown trigger */}
-          <div className="relative">
-            <button
-              onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
-              className="p-3 rounded-full bg-theme-text-primary/5 border border-theme-border text-theme-text-primary hover:bg-theme-text-primary/10 cursor-pointer outline-none"
-              title="More Options Settings"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-            
-            {/* Options Dropdown list */}
-            <AnimatePresence>
-              {showOptionsDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: 15, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute bottom-14 right-0 w-64 bg-theme-elevated border border-theme-border rounded-xl p-3 shadow-2xl flex flex-col gap-3 z-50 text-xs text-left"
-                >
-                  <span className="font-mono text-[9px] uppercase text-theme-text-muted border-b border-theme-border/10 pb-1">
-                    Smart Stream Settings
-                  </span>
-
-                  <button
-                    onClick={() => {
-                      setShowBgEffectsModal(true);
-                      setShowOptionsDropdown(false);
-                    }}
-                    className="flex items-center gap-2.5 py-1.5 px-2 hover:bg-theme-text-primary/5 rounded-lg text-theme-text-secondary hover:text-theme-text-primary cursor-pointer"
-                  >
-                    <Image className="w-4 h-4" />
-                    <span>Background Effects</span>
-                  </button>
-
-                  <div className="flex items-center justify-between px-2">
-                    <span className="text-theme-text-secondary">AI Noise Removal</span>
-                    <input
-                      type="checkbox"
-                      checked={isNoiseCancelled}
-                      onChange={() => setIsNoiseCancelled(!isNoiseCancelled)}
-                      className="accent-theme-text-primary cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between px-2">
-                    <span className="text-theme-text-secondary">Live Gestures AI</span>
-                    <input
-                      type="checkbox"
-                      checked={gestureRecognitionEnabled}
-                      onChange={() => setGestureRecognitionEnabled(!gestureRecognitionEnabled)}
-                      className="accent-theme-text-primary cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between px-2">
-                    <span className="text-theme-text-secondary">Voice Command Listen</span>
-                    <input
-                      type="checkbox"
-                      checked={voiceCommandsEnabled}
-                      onChange={() => setVoiceCommandsEnabled(!voiceCommandsEnabled)}
-                      className="accent-theme-text-primary cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="h-px bg-theme-border/15 my-1" />
-
-                  {/* Translation language */}
-                  <div className="flex flex-col gap-1.5 px-2">
-                    <span className="font-mono text-[8px] uppercase tracking-wider text-theme-text-muted flex items-center gap-1">
-                      <Languages className="w-3.5 h-3.5" />
-                      <span>Live Translation Engine</span>
-                    </span>
-                    <select
-                      value={selectedTranslationLang}
-                      onChange={(e: any) => setSelectedTranslationLang(e.target.value)}
-                      className="bg-theme-bg border border-theme-border rounded px-2 py-1 text-[11px] text-theme-text-primary outline-none"
-                    >
-                      <option value="none">Disabled</option>
-                      <option value="ja">Japanese (日本語)</option>
-                      <option value="es">Spanish (Español)</option>
-                      <option value="de">German (Deutsch)</option>
-                      <option value="hi">Hindi (हिन्दी)</option>
-                    </select>
-                  </div>
-
-                  <div className="h-px bg-theme-border/15 my-1" />
-
-                  {/* Host Panel Access */}
-                  <button
-                    onClick={() => {
-                      setShowHostModal(true);
-                      setShowOptionsDropdown(false);
-                    }}
-                    className="flex items-center gap-2.5 py-1.5 px-2 bg-theme-text-primary/5 hover:bg-theme-text-primary/10 rounded-lg text-theme-text-primary cursor-pointer border border-theme-border/30"
-                  >
-                    <Shield className="w-4 h-4 text-cyan-400" />
-                    <span>Organizer Dashboard</span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <div className="w-px h-6 bg-theme-border/30 mx-1" />
-
-          {/* Leave Button */}
-          <button
-            onClick={() => {
-              if (onLeave) onLeave();
-            }}
-            className="px-4 py-2 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-105 cursor-pointer outline-none"
-          >
-            Leave
-          </button>
-        </div>
-
-        {/* Right Side: Host-specific Actions (Direct exit trigger) */}
-        <div className="hidden sm:block">
-          <button
-            onClick={() => {
-              const isOrganizer = participants.find(p => p.id === "you")?.role === "Organizer";
-              if (isOrganizer) {
-                if (confirm("End this meeting for everyone?")) {
-                  socketRef.current?.emit("host_end_meeting", { roomCode });
-                }
-              } else {
-                if (onLeave) onLeave();
-              }
-            }}
-            className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-full text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer outline-none shadow-lg"
-            title="Terminate node session for all channels"
-          >
-            End Session
-          </button>
-        </div>
-      </div>
+      <MeetingControls
+        isMicOn={isMicOn}
+        isCamOn={isCamOn}
+        isScreenSharing={isScreenSharing}
+        isHandRaised={isHandRaised}
+        isSidebarOpen={isSidebarOpen}
+        activeTab={activeTab}
+        showOptionsDropdown={showOptionsDropdown}
+        selectedTranslationLang={selectedTranslationLang}
+        onToggleMic={toggleMic}
+        onToggleCam={toggleCam}
+        onToggleScreen={toggleScreenShare}
+        onToggleHandRaise={toggleHandRaise}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        onSetActiveTab={setActiveTab}
+        onToggleOptionsDropdown={() => setShowOptionsDropdown(!showOptionsDropdown)}
+        onTriggerReaction={triggerReaction}
+        onSetTranslationLang={(lang) => setSelectedTranslationLang(lang as any)}
+        onShowBgEffects={() => setShowBgEffectsModal(true)}
+        onShowHostModal={() => setShowHostModal(true)}
+        onLeave={() => { if (onLeave) onLeave(); }}
+        onEndSession={() => {
+          if (confirm("End this meeting for everyone?")) {
+            socketRef.current?.emit("host_end_meeting", { roomCode });
+          }
+        }}
+        isOrganizer={participants.find(p => p.id === "you")?.role === "Organizer"}
+      />
 
       {/* --- BACKGROUND EFFECTS SELECTOR MODAL --- */}
       <AnimatePresence>
         {showBgEffectsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div onClick={() => setShowBgEffectsModal(false)} className="absolute inset-0 bg-[#0B0B0B]/80 backdrop-blur-sm" />
-            <div className="glass-panel-heavy rounded-2xl border border-theme-border/40 p-6 w-full max-w-md shadow-2xl relative z-10 text-left">
+            <div className="glass-panel-heavy rounded-2xl border border-theme-border/40 p-6 w-full max-w-md shadow-2xl relative z-10 text-left animate-fade-in">
               <button
                 onClick={() => setShowBgEffectsModal(false)}
                 className="absolute top-4 right-4 text-theme-text-secondary hover:text-theme-text-primary cursor-pointer"
@@ -2677,7 +1547,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
         {showHostModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div onClick={() => setShowHostModal(false)} className="absolute inset-0 bg-[#0B0B0B]/85 backdrop-blur-sm" />
-            <div className="glass-panel-heavy rounded-2xl border border-theme-border/40 p-6 w-full max-w-lg shadow-2xl relative z-10 text-left">
+            <div className="glass-panel-heavy rounded-2xl border border-theme-border/40 p-6 w-full max-w-lg shadow-2xl relative z-10 text-left animate-fade-in">
               <button
                 onClick={() => setShowHostModal(false)}
                 className="absolute top-4 right-4 text-theme-text-secondary hover:text-theme-text-primary cursor-pointer"
@@ -2830,7 +1700,6 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
           </div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Mail, ArrowLeft, AlertCircle, CheckCircle, Send, Cpu } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { Link } from "react-router-dom";
 import AuthCard from "./AuthCard";
 import AuthInput from "./AuthInput";
 import AuthButton from "./AuthButton";
@@ -19,7 +20,7 @@ const forgotSchema = z.object({
 type ForgotFormValues = z.infer<typeof forgotSchema>;
 
 interface ForgotPasswordPageProps {
-  onNavigate: (view: "landing" | "signin" | "signup" | "forgot") => void;
+  onNavigate?: (view: "landing" | "signin" | "signup" | "forgot") => void;
 }
 
 export default function ForgotPasswordPage({ onNavigate }: ForgotPasswordPageProps) {
@@ -27,6 +28,11 @@ export default function ForgotPasswordPage({ onNavigate }: ForgotPasswordPagePro
   const [errorMessage, setErrorMessage] = useState("");
   const [success, setSuccess] = useState(false);
   const { resetPassword } = useAuth();
+  
+  // Use Link-based navigation — navigate prop is optional
+  const goToSignIn = () => {
+    if (onNavigate) onNavigate("signin");
+  };
 
   const {
     register,
@@ -239,14 +245,13 @@ export default function ForgotPasswordPage({ onNavigate }: ForgotPasswordPagePro
 
                 <div className="h-px bg-theme-border/20 my-1" />
 
-                <button
-                  type="button"
-                  onClick={() => onNavigate("signin")}
+                <Link
+                  to="/signin"
                   className="w-full py-3.5 px-4 text-xs font-semibold uppercase tracking-wider text-theme-text-muted hover:text-theme-text-primary transition-colors flex items-center justify-center gap-2 outline-none cursor-pointer"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>Back to Sign In</span>
-                </button>
+                </Link>
               </motion.div>
             ) : (
               /* Success Screen */
@@ -272,7 +277,7 @@ export default function ForgotPasswordPage({ onNavigate }: ForgotPasswordPagePro
 
                 <AuthButton
                   type="button"
-                  onClick={() => onNavigate("signin")}
+                  onClick={goToSignIn}
                   className="mt-2"
                 >
                   <span>Return to Sign In</span>
