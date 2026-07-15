@@ -92,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`${BACKEND_URL}/api/login`, {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -133,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`${BACKEND_URL}/api/register`, {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -160,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`${BACKEND_URL}/api/auth/verify-otp`, {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -195,6 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`${BACKEND_URL}/api/auth/forgot-password`, {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
       
       const data = await res.json();
@@ -215,6 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`${BACKEND_URL}/api/auth/reset-password`, {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -231,7 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch(`${BACKEND_URL}/api/auth/logout`, { method: "POST" });
+      await fetch(`${BACKEND_URL}/api/auth/logout`, { method: "POST", credentials: "include" });
     } catch (e) {
       console.warn("Logout request failed, clearing local session anyway.", e);
     }
@@ -247,6 +252,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(`${BACKEND_URL}/api/refresh`, {
         method: "POST",
+        credentials: "include",
       });
       if (res.ok) {
         const data = await res.json();

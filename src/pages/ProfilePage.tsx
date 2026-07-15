@@ -68,7 +68,8 @@ export default function ProfilePage() {
         const res = await fetch(`${BACKEND_URL}/api/user/profile`, {
           headers: {
             Authorization: `Bearer ${token}`
-          }
+          },
+          credentials: "include",
         });
         if (res.ok) {
           const data = await res.json();
@@ -107,6 +108,7 @@ export default function ProfilePage() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ fullName: displayName, avatarColor: selectedColor }),
+        credentials: "include",
       });
 
       if (res.ok) {
@@ -157,6 +159,7 @@ export default function ProfilePage() {
           Authorization: `Bearer ${token}`
         },
         body: formData,
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -184,7 +187,8 @@ export default function ProfilePage() {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`
-        }
+        },
+        credentials: "include",
       });
       if (res.ok) {
         toast(`Disconnected ${target.toUpperCase()} successfully.`, "success");
@@ -206,7 +210,8 @@ export default function ProfilePage() {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`
-        }
+        },
+        credentials: "include",
       });
       if (res.ok) {
         await logout();

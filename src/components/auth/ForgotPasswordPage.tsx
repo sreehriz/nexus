@@ -104,7 +104,8 @@ export default function ForgotPasswordPage() {
       formData.append("email", data.email);
       const res = await fetch(`${BACKEND_URL}/api/auth/forgot-password`, {
         method: "POST",
-        body: formData
+        body: formData,
+        credentials: "include",
       });
       const resData = await res.json();
       

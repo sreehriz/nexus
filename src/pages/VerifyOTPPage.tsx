@@ -155,7 +155,8 @@ export default function VerifyOTPPage() {
       
       const res = await fetch(endpoint, {
         method: "POST",
-        body: formData
+        body: formData,
+        credentials: "include",
       });
       
       setLoading(false);
