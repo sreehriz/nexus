@@ -1,14 +1,42 @@
 import os
 import smtplib
+import urllib.request
+import json as _json
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
 
-SMTP_HOST = os.getenv("SMTP_HOST", "")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_FROM = os.getenv("SMTP_FROM", "no-reply@nexus.app")
+from backend.config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, N8N_WEBHOOK_URL
+
+
+def _dispatch_n8n(payload: dict) -> bool:
+    """
+    Send email via n8n Webhook.
+    Set N8N_WEBHOOK_URL in .env.local to enable:
+      e.g. http://localhost:5678/webhook/nexus-email
+    Payload shape:
+      { "type": "welcome|forgot_password|password_changed",
+        "to": "email", "name": "Full Name", "otp": "123456" }
+    """
+    if not N8N_WEBHOOK_URL:
+        return False
+    try:
+        data = _json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            N8N_WEBHOOK_URL,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            ok = resp.status in (200, 201, 202)
+            if ok:
+                print(f"[EMAIL ENGINE] n8n webhook delivered → {payload.get('to')}")
+            return ok
+    except Exception as e:
+        print(f"[EMAIL ENGINE] n8n webhook failed: {e}")
+        return False
+
 
 # Responsive premium dark theme CSS template
 EMAIL_TEMPLATE = """
@@ -192,6 +220,10 @@ def send_email(to_email: str, subject: str, title: str, html_body: str) -> bool:
         return False
 
 def send_welcome_email(to_email: str, name: str, otp: str) -> bool:
+    # Try n8n webhook first (fastest for development with n8n running locally)
+    if _dispatch_n8n({"type": "welcome", "to": to_email, "name": name, "otp": otp}):
+        return True
+    # Fallback to SMTP / stdout
     body = f"""
     <h1>Welcome to Nexus, {name}</h1>
     <p>Your communication node setup is almost complete. To verify your email and activate your access privileges, enter the following 6-digit verification code:</p>
@@ -208,6 +240,8 @@ def send_welcome_email(to_email: str, name: str, otp: str) -> bool:
     )
 
 def send_forgot_password_email(to_email: str, name: str, otp: str) -> bool:
+    if _dispatch_n8n({"type": "forgot_password", "to": to_email, "name": name, "otp": otp}):
+        return True
     body = f"""
     <h1>Password Reset Request</h1>
     <p>A signal handshake was received requesting a password override on your Nexus profile. Enter the recovery key below to unlock the credential editor:</p>
@@ -224,6 +258,8 @@ def send_forgot_password_email(to_email: str, name: str, otp: str) -> bool:
     )
 
 def send_password_changed_email(to_email: str, name: str) -> bool:
+    if _dispatch_n8n({"type": "password_changed", "to": to_email, "name": name}):
+        return True
     body = f"""
     <h1>Security Alert: Credentials Modified</h1>
     <p>Hello {name},</p>

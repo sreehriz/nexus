@@ -12,8 +12,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import socketio
 
-from backend.config import GEMINI_API_KEY, APP_URL, UPLOAD_DIR, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
-from backend.database import init_db, get_db, User, Meeting, Participant, Message, File, Recording, Attendance, OTPCode, RefreshToken
+from backend.config import GEMINI_API_KEY, APP_URL, UPLOAD_DIR, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, COOKIE_SECURE, N8N_WEBHOOK_URL
+from backend.database import init_db, get_db, User, Meeting, Participant, Message, File, Recording, Attendance, OTPCode, RefreshToken, UserSettings, Notification
 from backend.auth import (
     get_password_hash,
     verify_password,
@@ -31,7 +31,17 @@ from backend.sockets import sio
 # Initialize Database
 init_db()
 
-app = FastAPI(title="Nexus Online Meeting Engine", version="1.0.0")
+app = FastAPI(
+    title="Nexus Online Meeting Engine",
+    version="1.0.0",
+    description="Production-ready real-time meeting platform with AI features",
+)
+
+# ── Health Check ──────────────────────────────────────────────────────────────
+@app.get("/api/health")
+def health_check():
+    """Lightweight health probe used by the frontend wait-on script."""
+    return {"status": "ok", "service": "nexus-backend", "timestamp": datetime.datetime.utcnow().isoformat()}
 
 # Setup CORS middleware — allow configured APP_URL or local origins
 _allowed_origins = [
@@ -254,7 +264,7 @@ def login(
         key="nexus_refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=True,
+        secure=COOKIE_SECURE,
         samesite="lax",
         max_age=7*24*60*60
     )
@@ -320,7 +330,7 @@ def refresh_token(request: Request, response: Response, db: Session = Depends(ge
         key="nexus_refresh_token",
         value=new_refresh_token,
         httponly=True,
-        secure=True,
+        secure=COOKIE_SECURE,
         samesite="lax",
         max_age=7*24*60*60
     )
@@ -385,7 +395,7 @@ def verify_otp(
             key="nexus_refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=True,
+            secure=COOKIE_SECURE,
             samesite="lax",
             max_age=7*24*60*60
         )
@@ -582,7 +592,7 @@ async def google_callback(code: str, request: Request, response: Response, db: S
         key="nexus_refresh_token",
         value=ref_token,
         httponly=True,
-        secure=True,
+        secure=COOKIE_SECURE,
         samesite="lax",
         max_age=7*24*60*60
     )
@@ -686,7 +696,7 @@ async def github_callback(code: str, request: Request, response: Response, db: S
         key="nexus_refresh_token",
         value=ref_token,
         httponly=True,
-        secure=True,
+        secure=COOKIE_SECURE,
         samesite="lax",
         max_age=7*24*60*60
     )
@@ -1270,6 +1280,195 @@ async def memory_search(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── User Settings API ─────────────────────────────────────────────────────────
+
+class SettingsUpdate(BaseModel):
+    theme: Optional[str] = None             # "dark" | "light"
+    language: Optional[str] = None          # ISO 639-1 code
+    auto_mute: Optional[bool] = None
+    auto_video_off: Optional[bool] = None
+    captions_enabled: Optional[bool] = None
+    notify_on_join: Optional[bool] = None
+    notify_on_chat: Optional[bool] = None
+
+
+@app.get("/api/user/settings")
+def get_user_settings(user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    """Return user preference settings. Creates defaults on first call."""
+    settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+    if not settings:
+        # Auto-create defaults on first access
+        settings = UserSettings(user_id=user_id)
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+    return {
+        "theme": settings.theme,
+        "language": settings.language,
+        "auto_mute": settings.auto_mute,
+        "auto_video_off": settings.auto_video_off,
+        "captions_enabled": settings.captions_enabled,
+        "notify_on_join": settings.notify_on_join,
+        "notify_on_chat": settings.notify_on_chat,
+        "updated_at": settings.updated_at.isoformat() if settings.updated_at else None,
+    }
+
+
+@app.patch("/api/user/settings")
+def update_user_settings(
+    body: SettingsUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Update user preference settings. Returns updated record."""
+    settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+    if not settings:
+        settings = UserSettings(user_id=user_id)
+        db.add(settings)
+
+    if body.theme is not None:
+        if body.theme not in ("dark", "light"):
+            raise HTTPException(status_code=400, detail="Theme must be 'dark' or 'light'")
+        settings.theme = body.theme
+    if body.language is not None:
+        settings.language = body.language
+    if body.auto_mute is not None:
+        settings.auto_mute = body.auto_mute
+    if body.auto_video_off is not None:
+        settings.auto_video_off = body.auto_video_off
+    if body.captions_enabled is not None:
+        settings.captions_enabled = body.captions_enabled
+    if body.notify_on_join is not None:
+        settings.notify_on_join = body.notify_on_join
+    if body.notify_on_chat is not None:
+        settings.notify_on_chat = body.notify_on_chat
+
+    settings.updated_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(settings)
+
+    return {
+        "status": "ok",
+        "theme": settings.theme,
+        "language": settings.language,
+        "auto_mute": settings.auto_mute,
+        "auto_video_off": settings.auto_video_off,
+        "captions_enabled": settings.captions_enabled,
+        "notify_on_join": settings.notify_on_join,
+        "notify_on_chat": settings.notify_on_chat,
+    }
+
+
+# ── Notifications API ─────────────────────────────────────────────────────────
+
+@app.get("/api/notifications")
+def get_notifications(
+    limit: int = 30,
+    unread_only: bool = False,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Return paginated notification feed for the authenticated user."""
+    query = db.query(Notification).filter(Notification.user_id == user_id)
+    if unread_only:
+        query = query.filter(Notification.is_read == False)
+    notifications = query.order_by(Notification.created_at.desc()).limit(limit).all()
+    unread_count = db.query(Notification).filter(
+        Notification.user_id == user_id,
+        Notification.is_read == False
+    ).count()
+    return {
+        "notifications": [
+            {
+                "id": n.id,
+                "title": n.title,
+                "body": n.body,
+                "type": n.type,
+                "is_read": n.is_read,
+                "action_url": n.action_url,
+                "created_at": n.created_at.isoformat() if n.created_at else None,
+            }
+            for n in notifications
+        ],
+        "unread_count": unread_count,
+    }
+
+
+@app.patch("/api/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Mark a single notification as read."""
+    n = db.query(Notification).filter(
+        Notification.id == notification_id,
+        Notification.user_id == user_id
+    ).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    n.is_read = True
+    db.commit()
+    return {"status": "ok"}
+
+
+@app.patch("/api/notifications/read-all")
+def mark_all_notifications_read(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Mark all notifications as read for the authenticated user."""
+    db.query(Notification).filter(
+        Notification.user_id == user_id,
+        Notification.is_read == False
+    ).update({"is_read": True})
+    db.commit()
+    return {"status": "ok", "detail": "All notifications marked as read."}
+
+
+@app.delete("/api/notifications/{notification_id}")
+def delete_notification(
+    notification_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Delete a specific notification."""
+    n = db.query(Notification).filter(
+        Notification.id == notification_id,
+        Notification.user_id == user_id
+    ).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    db.delete(n)
+    db.commit()
+    return {"status": "ok"}
+
+
+@app.post("/api/notifications")
+def create_notification(
+    title: str = Form(...),
+    body: Optional[str] = Form(None),
+    type: str = Form("info"),
+    action_url: Optional[str] = Form(None),
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Create a notification for the current user (e.g., from meeting-end event)."""
+    if type not in ("info", "success", "warning", "error"):
+        type = "info"
+    n = Notification(
+        user_id=user_id,
+        title=title,
+        body=body,
+        type=type,
+        action_url=action_url,
+    )
+    db.add(n)
+    db.commit()
+    db.refresh(n)
+    return {"status": "ok", "id": n.id}
+
+
 # Mount Socket.IO as ASGI app inside FastAPI
 asgi_app = socketio.ASGIApp(sio, other_asgi_app=app)
-app.mount("/", asgi_app) # Route root / to socketio app which falls back to fastapi
+app.mount("/", asgi_app)  # Route root / to socketio app which falls back to fastapi

@@ -10,7 +10,6 @@ import AuthInput from "./AuthInput";
 import AuthButton from "./AuthButton";
 import SocialLoginButton from "./SocialLoginButton";
 import { useAuth } from "../../context/AuthContext";
-import { supabase } from "../../lib/supabaseClient";
 
 const signUpSchema = z.object({
   fullName: z.string().min(1, "Please enter your full name"),

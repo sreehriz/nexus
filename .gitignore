@@ -1,10 +1,52 @@
+# ── Node ──────────────────────────────────────────────────────────────────────
 node_modules/
 build/
 dist/
 coverage/
-.DS_Store
-*.log
+
+# ── Environment ───────────────────────────────────────────────────────────────
 .env*
 !.env.example
 
-.vercel
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ── Database ──────────────────────────────────────────────────────────────────
+# Uncomment to exclude SQLite DB from git (recommended for production)
+# nexus.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.idea/
+*.swp
+*.swo
+*.sublime-project
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+
+# ── Vercel ────────────────────────────────────────────────────────────────────
+.vercel/
+
+# ── Uploads ───────────────────────────────────────────────────────────────────
+# Uploaded user files — do not commit to git
+public/uploads/
