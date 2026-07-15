@@ -15,10 +15,17 @@ class User(Base):
     __tablename__ = "users"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=True)
     password_hash = Column(String, nullable=False)
     full_name = Column(String, nullable=False)
     avatar_color = Column(String, default="from-indigo-500 to-cyan-400")
+    provider = Column(String, default="local") # "local" | "google" | "github"
+    email_verified = Column(Boolean, default=False)
+    failed_login_attempts = Column(Integer, default=0)
+    locked_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
 
 class UserSettings(Base):
     """Per-user preference store — created on first save."""
@@ -126,6 +133,26 @@ class Notification(Base):
     type = Column(String, default="info")             # "info" | "success" | "warning" | "error"
     is_read = Column(Boolean, default=False)
     action_url = Column(String, nullable=True)        # Optional deep-link (e.g., /history/nex-794-slv)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class OTPCode(Base):
+    __tablename__ = "otps"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), index=True, nullable=False)
+    otp_hash = Column(String, nullable=False)
+    purpose = Column(String, nullable=False)  # "verify_email" | "reset_password"
+    expires_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, default=0)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), index=True, nullable=False)
+    token_hash = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 def init_db():

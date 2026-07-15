@@ -53,18 +53,20 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
     setSuccessMessage("");
 
     try {
-      const { error } = await login(data.email, data.password);
+      const res = await login(data.email, data.password);
 
-      if (error) {
+      if (res.error) {
         setLoading(false);
-        setErrorMessage(error.message || "Invalid email or password");
+        setErrorMessage(res.error.message || "Invalid email or password");
+      } else if (res.verificationRequired) {
+        setLoading(false);
+        setSuccessMessage("Verification required. Loading verification module...");
+        setTimeout(() => {
+          navigate(`/verify-otp?userId=${res.userId}&email=${res.email}&purpose=verify_email`);
+        }, 1000);
       } else {
         setSuccessMessage("Welcome back to Nexus");
-        
-        // Retrieve fresh user info to get metadata
-        const { data: { user } } = await supabase.auth.getUser();
-        const displayName = user?.user_metadata?.fullName || user?.user_metadata?.username || data.email.split("@")[0];
-        const name = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+        const name = data.email.split("@")[0];
 
         setTimeout(() => {
           setLoading(false);
@@ -84,22 +86,8 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
   const handleOAuthLogin = async (provider: "google" | "github" | "microsoft" | "apple") => {
     setLoading(true);
     setErrorMessage("");
-    try {
-      const supabaseProvider = provider === "microsoft" ? "azure" : provider;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: supabaseProvider as any,
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
-      if (error) {
-        setLoading(false);
-        setErrorMessage(error.message);
-      }
-    } catch (err: any) {
-      setLoading(false);
-      setErrorMessage(err.message || `Failed to initiate connection with ${provider}.`);
-    }
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+    window.location.href = `${BACKEND_URL}/api/auth/${provider}`;
   };
 
   return (

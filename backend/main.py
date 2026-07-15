@@ -5,16 +5,27 @@ import datetime
 import httpx
 import json
 from typing import Optional, List
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File as FastAPIFile, Form, Request
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File as FastAPIFile, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import socketio
 
-from backend.config import GEMINI_API_KEY, APP_URL, UPLOAD_DIR
-from backend.database import init_db, get_db, User, Meeting, Participant, Message, File, Recording, Attendance
-from backend.auth import get_password_hash, verify_password, create_access_token, decode_access_token, get_current_user_id
+from backend.config import GEMINI_API_KEY, APP_URL, UPLOAD_DIR, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
+from backend.database import init_db, get_db, User, Meeting, Participant, Message, File, Recording, Attendance, OTPCode, RefreshToken
+from backend.auth import (
+    get_password_hash,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    decode_access_token,
+    decode_refresh_token,
+    get_current_user_id,
+    generate_otp,
+    hash_otp
+)
+from backend.email_service import send_welcome_email, send_forgot_password_email, send_password_changed_email
 from backend.sockets import sio
 
 # Initialize Database
@@ -63,56 +74,665 @@ def _check_rate_limit(request: Request):
 
 # --- JWT Authentication Endpoints ---
 
+import re
+
+def is_strong_password(p: str) -> bool:
+    if len(p) < 8:
+        return False
+    if not re.search("[A-Z]", p):
+        return False
+    if not re.search("[a-z]", p):
+        return False
+    if not re.search("[0-9]", p):
+        return False
+    if not re.search("[!@#$%^&*(),.?\":{}|<>]", p):
+        return False
+    return True
+
 @app.post("/api/register")
 def register(
     request: Request,
     email: str = Form(...),
+    username: str = Form(...),
     password: str = Form(...),
     fullName: str = Form(...),
     avatarColor: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     _check_rate_limit(request)
-    existing = db.query(User).filter(User.email == email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
     
+    # Validation
+    if not is_strong_password(password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 8 characters long and contain uppercase, lowercase, numbers, and special characters."
+        )
+        
+    existing_email = db.query(User).filter(User.email == email).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+        
+    existing_user = db.query(User).filter(User.username == username.lower()).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username is already taken")
+        
+    # Create User (unverified)
     user = User(
         email=email,
+        username=username.lower(),
         password_hash=get_password_hash(password),
         full_name=fullName,
-        avatar_color=avatarColor or "from-indigo-500 to-cyan-400"
+        avatar_color=avatarColor or "from-indigo-500 to-cyan-400",
+        email_verified=False
     )
     db.add(user)
     db.commit()
     db.refresh(user)
     
-    token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
-    return {"token": token, "user": {"id": user.id, "email": user.email, "fullName": user.full_name, "avatarColor": user.avatar_color}}
+    # Generate OTP
+    otp = generate_otp()
+    hashed = hash_otp(otp)
+    expiry = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+    
+    otp_record = OTPCode(
+        user_id=user.id,
+        otp_hash=hashed,
+        purpose="verify_email",
+        expires_at=expiry
+    )
+    db.add(otp_record)
+    db.commit()
+    
+    # Send Welcome Email
+    send_welcome_email(user.email, user.full_name, otp)
+    
+    return {
+        "status": "verification_required",
+        "userId": user.id,
+        "email": user.email
+    }
 
 @app.post("/api/login")
 def login(
     request: Request,
+    response: Response,
     email: str = Form(...),
     password: str = Form(...),
     db: Session = Depends(get_db)
 ):
     _check_rate_limit(request)
     user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
     
-    token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
-    return {"token": token, "user": {"id": user.id, "email": user.email, "fullName": user.full_name, "avatarColor": user.avatar_color}}
+    # Check Lockout status
+    if user and user.locked_until:
+        if datetime.datetime.utcnow() < user.locked_until:
+            wait_time = int((user.locked_until - datetime.datetime.utcnow()).total_seconds() / 60)
+            raise HTTPException(
+                status_code=401, 
+                detail=f"Account is locked due to multiple failed login attempts. Try again in {wait_time} minutes."
+            )
+        else:
+            # Lock has expired, reset counter
+            user.locked_until = None
+            user.failed_login_attempts = 0
+            db.commit()
+
+    if not user or not verify_password(password, user.password_hash):
+        # Handle failed login tracking
+        if user:
+            user.failed_login_attempts += 1
+            if user.failed_login_attempts >= 5:
+                user.locked_until = datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
+                db.commit()
+                raise HTTPException(
+                    status_code=401, 
+                    detail="Account is locked due to multiple failed login attempts. Try again in 15 minutes."
+                )
+            db.commit()
+        # Always output generic message to prevent enumeration
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+        
+    # Check if Email is Verified
+    if not user.email_verified:
+        # Generate new verification code
+        otp = generate_otp()
+        hashed = hash_otp(otp)
+        expiry = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+        
+        # Deactivate old verify codes
+        db.query(OTPCode).filter(OTPCode.user_id == user.id, OTPCode.purpose == "verify_email").update({"used": True})
+        
+        otp_record = OTPCode(
+            user_id=user.id,
+            otp_hash=hashed,
+            purpose="verify_email",
+            expires_at=expiry
+        )
+        db.add(otp_record)
+        db.commit()
+        
+        send_welcome_email(user.email, user.full_name, otp)
+        
+        return {
+            "status": "verification_required",
+            "userId": user.id,
+            "email": user.email
+        }
+        
+    # Successful Login
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    user.last_login = datetime.datetime.utcnow()
+    db.commit()
+    
+    # Tokens
+    access_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
+    refresh_token = create_refresh_token({"sub": user.id})
+    
+    # Store Refresh Token
+    token_hash = hash_otp(refresh_token) # use SHA-256 for refresh token storage
+    rt_record = RefreshToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    )
+    db.add(rt_record)
+    db.commit()
+    
+    # Set Secure HttpOnly cookie
+    response.set_cookie(
+        key="nexus_refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=7*24*60*60
+    )
+    
+    return {
+        "token": access_token,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "fullName": user.full_name,
+            "avatarColor": user.avatar_color
+        }
+    }
 
 @app.post("/api/refresh")
-def refresh_token(user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
-    """Issue a fresh JWT token. The old token must still be valid to call this."""
+def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
+    """Silent token rotation using Secure HTTPOnly cookies"""
+    refresh_token = request.cookies.get("nexus_refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing")
+        
+    payload = decode_refresh_token(refresh_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        
+    user_id = payload.get("sub")
+    token_hash = hash_otp(refresh_token)
+    
+    # Validate in database
+    rt = db.query(RefreshToken).filter(
+        RefreshToken.user_id == user_id,
+        RefreshToken.token_hash == token_hash,
+        RefreshToken.revoked == False,
+        RefreshToken.expires_at > datetime.datetime.utcnow()
+    ).first()
+    
+    if not rt:
+        raise HTTPException(status_code=401, detail="Revoked or expired refresh token")
+        
+    # Rotate refresh token (revoke old one, create new one)
+    rt.revoked = True
+    db.commit()
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+        
+    new_access_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
+    new_refresh_token = create_refresh_token({"sub": user.id})
+    
+    # Store rotated refresh token
+    new_token_hash = hash_otp(new_refresh_token)
+    new_rt = RefreshToken(
+        user_id=user.id,
+        token_hash=new_token_hash,
+        expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    )
+    db.add(new_rt)
+    db.commit()
+    
+    # Write rotated cookie
+    response.set_cookie(
+        key="nexus_refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=7*24*60*60
+    )
+    
+    return {"token": new_access_token}
+
+@app.post("/api/auth/verify-otp")
+def verify_otp(
+    response: Response,
+    userId: str = Form(...),
+    otp: str = Form(...),
+    purpose: str = Form(...), # "verify_email" | "reset_password"
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == userId).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    hashed = hash_otp(otp)
+    
+    # Find unused unexpired code
+    otp_record = db.query(OTPCode).filter(
+        OTPCode.user_id == userId,
+        OTPCode.purpose == purpose,
+        OTPCode.used == False,
+        OTPCode.expires_at > datetime.datetime.utcnow()
+    ).order_by(OTPCode.created_at.desc()).first()
+    
+    if not otp_record:
+        raise HTTPException(status_code=400, detail="Verification code has expired or is invalid.")
+        
+    otp_record.attempts += 1
+    if otp_record.attempts >= 5:
+        otp_record.used = True
+        db.commit()
+        raise HTTPException(status_code=400, detail="Too many incorrect attempts. Code invalidated.")
+        
+    if otp_record.otp_hash != hashed:
+        db.commit()
+        raise HTTPException(status_code=400, detail="Incorrect verification code.")
+        
+    # Mark OTP as verified/used
+    otp_record.used = True
+    
+    if purpose == "verify_email":
+        user.email_verified = True
+        db.commit()
+        
+        # Log user in
+        access_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
+        refresh_token = create_refresh_token({"sub": user.id})
+        
+        rt_record = RefreshToken(
+            user_id=user.id,
+            token_hash=hash_otp(refresh_token),
+            expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=7)
+        )
+        db.add(rt_record)
+        db.commit()
+        
+        response.set_cookie(
+            key="nexus_refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            max_age=7*24*60*60
+        )
+        
+        return {
+            "status": "success",
+            "token": access_token,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "fullName": user.full_name,
+                "avatarColor": user.avatar_color
+            }
+        }
+        
+    db.commit()
+    return {"status": "otp_verified"}
+
+@app.post("/api/auth/forgot-password")
+def forgot_password(request: Request, email: str = Form(...), db: Session = Depends(get_db)):
+    _check_rate_limit(request)
+    user = db.query(User).filter(User.email == email).first()
+    
+    # To prevent enumeration, ALWAYS print success feedback
+    response_msg = {"detail": "If an account exists, we've sent a verification code."}
+    
+    if not user:
+        return response_msg
+        
+    # Invalidate previous unexpired resets
+    db.query(OTPCode).filter(OTPCode.user_id == user.id, OTPCode.purpose == "reset_password").update({"used": True})
+    
+    otp = generate_otp()
+    hashed = hash_otp(otp)
+    expiry = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+    
+    otp_record = OTPCode(
+        user_id=user.id,
+        otp_hash=hashed,
+        purpose="reset_password",
+        expires_at=expiry
+    )
+    db.add(otp_record)
+    db.commit()
+    
+    send_forgot_password_email(user.email, user.full_name, otp)
+    return response_msg
+
+@app.post("/api/auth/reset-password")
+def reset_password(
+    userId: str = Form(...),
+    otp: str = Form(...),
+    newPassword: str = Form(...),
+    confirmPassword: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    if newPassword != confirmPassword:
+        raise HTTPException(status_code=400, detail="Passwords do not match.")
+        
+    if not is_strong_password(newPassword):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain uppercase, lowercase, numbers, and special characters."
+        )
+        
+    user = db.query(User).filter(User.id == userId).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    hashed_otp = hash_otp(otp)
+    
+    # Confirm OTP code has been verified and not expired
+    otp_record = db.query(OTPCode).filter(
+        OTPCode.user_id == userId,
+        OTPCode.purpose == "reset_password",
+        OTPCode.otp_hash == hashed_otp,
+        OTPCode.used == True # OTP verify endpoint already marked it as True
+    ).order_by(OTPCode.created_at.desc()).first()
+    
+    if not otp_record:
+         raise HTTPException(status_code=400, detail="Unauthorized reset attempt. Code missing or invalid.")
+         
+    # Update Password and revoke sessions
+    user.password_hash = get_password_hash(newPassword)
+    db.query(RefreshToken).filter(RefreshToken.user_id == userId).update({"revoked": True})
+    db.commit()
+    
+    send_password_changed_email(user.email, user.full_name)
+    return {"status": "success", "detail": "Password updated successfully."}
+
+@app.post("/api/auth/logout")
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    refresh_token = request.cookies.get("nexus_refresh_token")
+    if refresh_token:
+        token_hash = hash_otp(refresh_token)
+        db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).update({"revoked": True})
+        db.commit()
+        
+    response.delete_cookie("nexus_refresh_token")
+    return {"status": "ok"}
+
+# --- OAuth 2.0 Redirections and Callbacks ---
+
+from fastapi.responses import RedirectResponse
+
+@app.get("/api/auth/google")
+def google_auth(request: Request):
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=400, detail="Google client credentials are not configured in environment.")
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/api/auth/google/callback"
+    scope = "openid email profile"
+    url = (
+        f"https://accounts.google.com/o/oauth2/v2/auth?"
+        f"client_id={GOOGLE_CLIENT_ID}&"
+        f"redirect_uri={redirect_uri}&"
+        f"response_type=code&"
+        f"scope={scope}&"
+        f"state=google-auth-state"
+    )
+    return RedirectResponse(url)
+
+@app.get("/api/auth/google/callback")
+async def google_callback(code: str, request: Request, response: Response, db: Session = Depends(get_db)):
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=400, detail="Google client credentials are not configured.")
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/api/auth/google/callback"
+    
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+    }
+    
+    async with httpx.AsyncClient() as client:
+        token_res = await client.post(token_url, data=data)
+        if token_res.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to exchange code with Google.")
+        token_data = token_res.json()
+        access_token = token_data.get("access_token")
+        
+        userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+        userinfo_res = await client.get(userinfo_url, headers={"Authorization": f"Bearer {access_token}"})
+        if userinfo_res.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to fetch user info from Google.")
+        user_info = userinfo_res.json()
+        
+    email = user_info.get("email")
+    full_name = user_info.get("name") or email.split("@")[0]
+    avatar = user_info.get("picture")
+    
+    if not email:
+        raise HTTPException(status_code=400, detail="No email returned from Google.")
+        
+    user = db.query(User).filter(User.email == email).first()
+    import random
+    if not user:
+        user = User(
+            email=email,
+            username=email.split("@")[0] + "_" + str(random.randint(100, 999)),
+            password_hash=get_password_hash(str(uuid.uuid4())),
+            full_name=full_name,
+            provider="google",
+            email_verified=True,
+            last_login=datetime.datetime.utcnow()
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        user.last_login = datetime.datetime.utcnow()
+        if user.provider == "local":
+            user.provider = "google"
+        user.email_verified = True
+        db.commit()
+        
+    acc_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
+    ref_token = create_refresh_token({"sub": user.id})
+    
+    rt_record = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_otp(ref_token),
+        expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    )
+    db.add(rt_record)
+    db.commit()
+    
+    redir = RedirectResponse(f"{APP_URL}/dashboard?token={acc_token}")
+    redir.set_cookie(
+        key="nexus_refresh_token",
+        value=ref_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=7*24*60*60
+    )
+    return redir
+
+@app.get("/api/auth/github")
+def github_auth(request: Request):
+    if not GITHUB_CLIENT_ID:
+        raise HTTPException(status_code=400, detail="GitHub client credentials are not configured in environment.")
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/api/auth/github/callback"
+    url = (
+        f"https://github.com/login/oauth/authorize?"
+        f"client_id={GITHUB_CLIENT_ID}&"
+        f"redirect_uri={redirect_uri}&"
+        f"scope=user:email&"
+        f"state=github-auth-state"
+    )
+    return RedirectResponse(url)
+
+@app.get("/api/auth/github/callback")
+async def github_callback(code: str, request: Request, response: Response, db: Session = Depends(get_db)):
+    if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
+        raise HTTPException(status_code=400, detail="GitHub client credentials are not configured.")
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/api/auth/github/callback"
+    
+    token_url = "https://github.com/login/oauth/access_token"
+    headers = {"Accept": "application/json"}
+    data = {
+        "code": code,
+        "client_id": GITHUB_CLIENT_ID,
+        "client_secret": GITHUB_CLIENT_SECRET,
+        "redirect_uri": redirect_uri,
+    }
+    
+    async with httpx.AsyncClient() as client:
+        token_res = await client.post(token_url, data=data, headers=headers)
+        if token_res.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to exchange code with GitHub.")
+        token_data = token_res.json()
+        access_token = token_data.get("access_token")
+        
+        user_res = await client.get("https://api.github.com/user", headers={"Authorization": f"Bearer {access_token}"})
+        if user_res.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to fetch user profile from GitHub.")
+        user_info = user_res.json()
+        
+        emails_res = await client.get("https://api.github.com/user/emails", headers={"Authorization": f"Bearer {access_token}"})
+        email = None
+        if emails_res.status_code == 200:
+            emails = emails_res.json()
+            for e in emails:
+                if e.get("primary") and e.get("verified"):
+                    email = e.get("email")
+                    break
+            if not email and emails:
+                email = emails[0].get("email")
+                
+    if not email:
+        email = user_info.get("email") or f"{user_info.get('login')}@users.noreply.github.com"
+        
+    full_name = user_info.get("name") or user_info.get("login") or email.split("@")[0]
+    username = user_info.get("login") or email.split("@")[0]
+    
+    user = db.query(User).filter(User.email == email).first()
+    import random
+    if not user:
+        user = User(
+            email=email,
+            username=username.lower(),
+            password_hash=get_password_hash(str(uuid.uuid4())),
+            full_name=full_name,
+            provider="github",
+            email_verified=True,
+            last_login=datetime.datetime.utcnow()
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        user.last_login = datetime.datetime.utcnow()
+        if user.provider == "local":
+            user.provider = "github"
+        user.email_verified = True
+        db.commit()
+        
+    acc_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
+    ref_token = create_refresh_token({"sub": user.id})
+    
+    rt_record = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_otp(ref_token),
+        expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    )
+    db.add(rt_record)
+    db.commit()
+    
+    redir = RedirectResponse(f"{APP_URL}/dashboard?token={acc_token}")
+    redir.set_cookie(
+        key="nexus_refresh_token",
+        value=ref_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=7*24*60*60
+    )
+    return redir
+
+@app.post("/api/auth/disconnect/{provider}")
+def disconnect_provider(provider: str, user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    if provider not in ["google", "github"]:
+        raise HTTPException(status_code=400, detail="Invalid provider")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    new_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
-    return {"token": new_token}
+        
+    if user.provider == provider:
+        user.provider = "local"
+        db.commit()
+        return {"status": "ok", "detail": f"Disconnected {provider.capitalize()} account successfully."}
+    else:
+        raise HTTPException(status_code=400, detail="Provider not connected")
+
+@app.post("/api/user/change-password")
+def change_password(
+    currentPassword: str = Form(...),
+    newPassword: str = Form(...),
+    confirmPassword: str = Form(...),
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    if newPassword != confirmPassword:
+        raise HTTPException(status_code=400, detail="Passwords do not match.")
+    if not is_strong_password(newPassword):
+        raise HTTPException(status_code=400, detail="New password does not meet complexity rules.")
+        
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not verify_password(currentPassword, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid current password.")
+        
+    user.password_hash = get_password_hash(newPassword)
+    db.query(RefreshToken).filter(RefreshToken.user_id == user_id).update({"revoked": True})
+    db.commit()
+    send_password_changed_email(user.email, user.full_name)
+    return {"status": "ok", "detail": "Password updated successfully."}
+
+@app.post("/api/user/delete-account")
+def delete_account(user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    db.query(RefreshToken).filter(RefreshToken.user_id == user_id).delete()
+    db.query(OTPCode).filter(OTPCode.user_id == user_id).delete()
+    from backend.database import UserSettings
+    db.query(UserSettings).filter(UserSettings.user_id == user_id).delete()
+    db.query(User).filter(User.id == user_id).delete()
+    db.commit()
+    return {"status": "ok", "detail": "Account and all associated credentials removed successfully."}
 
 # --- Core Meeting REST APIs ---
 
@@ -488,8 +1108,10 @@ def get_user_profile(user_id: str = Depends(get_current_user_id), db: Session = 
     return {
         "id": user.id,
         "email": user.email,
+        "username": user.username,
         "fullName": user.full_name,
         "avatarColor": user.avatar_color,
+        "provider": user.provider,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
     }
 

@@ -137,12 +137,15 @@ export default function SignUpPage({ onNavigate, onSuccess }: SignUpPageProps) {
     };
 
     try {
-      const { error } = await signUp(data.email, data.password, metadata);
+      const res = await signUp(data.email, data.password, metadata);
 
-      if (error) {
+      if (res.error) {
         setLoading(false);
-        setErrorMessage(error.message || "Failed to create account.");
+        setErrorMessage(res.error.message || "Failed to create account.");
         setStep(1); // Return to Step 1 to correct fields
+      } else if (res.verificationRequired) {
+        setLoading(false);
+        navigate(`/verify-otp?userId=${res.userId}&email=${res.email}&purpose=verify_email`);
       } else {
         setLoading(false);
         if (onSuccess) {
@@ -161,22 +164,8 @@ export default function SignUpPage({ onNavigate, onSuccess }: SignUpPageProps) {
   const handleOAuthSignUp = async (provider: "google" | "github" | "microsoft" | "apple") => {
     setLoading(true);
     setErrorMessage("");
-    try {
-      const supabaseProvider = provider === "microsoft" ? "azure" : provider;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: supabaseProvider as any,
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
-      if (error) {
-        setLoading(false);
-        setErrorMessage(error.message);
-      }
-    } catch (err: any) {
-      setLoading(false);
-      setErrorMessage(err.message || `Failed to initiate sign-up handshake with ${provider}.`);
-    }
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+    window.location.href = `${BACKEND_URL}/api/auth/${provider}`;
   };
 
   const currentAvatarGrad = PRESET_AVATARS.find((a) => a.id === selectedAvatar)?.gradient || "from-theme-surface to-theme-secondary";

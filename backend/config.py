@@ -16,5 +16,10 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 APP_URL = os.getenv("APP_URL", "http://localhost:3000")
 UPLOAD_DIR = os.path.join(workspace_root, "public", "uploads")
 
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+
 # Ensure upload directory exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)

@@ -10,6 +10,7 @@ const MeetingPage = lazy(() => import("../pages/MeetingPage"));
 const SignInPage = lazy(() => import("../components/auth/SignInPage"));
 const SignUpPage = lazy(() => import("../components/auth/SignUpPage"));
 const ForgotPasswordPage = lazy(() => import("../components/auth/ForgotPasswordPage"));
+const VerifyOTPPage = lazy(() => import("../pages/VerifyOTPPage"));
 const ProfilePage = lazy(() => import("../pages/ProfilePage"));
 const SettingsPage = lazy(() => import("../pages/SettingsPage"));
 const HistoryPage = lazy(() => import("../pages/HistoryPage"));
@@ -35,6 +36,7 @@ export default function AppRouter() {
         <Route path="/signin" element={<SignInPage />} />
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/verify-otp" element={<VerifyOTPPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
 
