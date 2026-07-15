@@ -341,7 +341,18 @@ export default function SignUpPage({ onNavigate, onSuccess }: SignUpPageProps) {
               className="flex items-start gap-2.5 p-3.5 rounded-xl border border-red-500/25 bg-red-500/10 text-red-400 text-xs text-left"
             >
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
+              <div className="flex-1 flex justify-between items-center gap-2">
+                <span>{errorMessage}</span>
+                {errorMessage.includes("connect to server") && (
+                  <button
+                    type="button"
+                    onClick={handleFormSubmit}
+                    className="text-[10px] font-bold uppercase tracking-wider underline hover:text-white transition-colors cursor-pointer shrink-0"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
             </motion.div>
           )}
 

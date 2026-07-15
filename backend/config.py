@@ -10,7 +10,7 @@ JWT_SECRET = os.getenv("JWT_SECRET", "nexus-super-secret-key-signature-2026")
 JWT_ALGORITHM = "HS256"
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./nexus.db")
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(workspace_root, 'nexus.db')}")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 APP_URL = os.getenv("APP_URL", "http://localhost:3000")
