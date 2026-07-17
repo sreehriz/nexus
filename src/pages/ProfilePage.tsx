@@ -16,11 +16,14 @@ import {
   EyeOff, 
   Link2, 
   Link2Off,
-  Github
+  Github,
+  Loader2,
+  Camera
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import CinematicBackground from "../components/CinematicBackground";
+import { BACKEND_URL } from "@/src/config";
 
 const AVATAR_COLORS = [
   { label: "Cosmic", value: "from-indigo-500 to-cyan-400" },
@@ -33,7 +36,6 @@ const AVATAR_COLORS = [
   { label: "Flame", value: "from-[#FA709A] to-[#FEE140]" },
 ];
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
@@ -51,6 +53,51 @@ export default function ProfilePage() {
   const [provider, setProvider] = useState("local");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const token = localStorage.getItem("nexus_jwt");
+      const response = await fetch(`${BACKEND_URL}/api/user/avatar`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token || ""}`,
+        },
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!response.ok) throw new Error("Upload failed");
+
+      const data = await response.json();
+      setAvatar(data.avatar);
+      
+      if (data.token) {
+        localStorage.setItem("nexus_jwt", data.token);
+      }
+
+      const mock = localStorage.getItem("nexus_mock_session");
+      if (mock) {
+        const parsed = JSON.parse(mock);
+        parsed.user_metadata = { ...parsed.user_metadata, avatar: data.avatar };
+        localStorage.setItem("nexus_mock_session", JSON.stringify(parsed));
+      }
+      
+      toast("Profile avatar updated successfully.", "success");
+    } catch (err: any) {
+      toast(err.message || "Failed to upload avatar.", "error");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
 
   // Password Override Form State
   const [currentPassword, setCurrentPassword] = useState("");
@@ -253,17 +300,36 @@ export default function ProfilePage() {
 
           {/* User info header block */}
           <div className="flex items-center gap-5 glass-panel rounded-2xl p-6 text-left">
-            {avatar ? (
-              <img
-                src={avatar}
-                alt={displayName}
-                className="w-20 h-20 rounded-2xl object-cover shadow-md shrink-0 border border-theme-border/20"
-              />
-            ) : (
-              <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${selectedColor} flex items-center justify-center text-white font-bold text-2xl select-none shadow-md shrink-0`}>
-                {(displayName || user?.email || "U")[0].toUpperCase()}
-              </div>
-            )}
+            <div className="relative group shrink-0 w-20 h-20 rounded-2xl overflow-hidden shadow-md border border-theme-border/20">
+              {avatar ? (
+                <img
+                  src={avatar}
+                  alt={displayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className={`w-full h-full bg-gradient-to-br ${selectedColor} flex items-center justify-center text-white font-bold text-2xl select-none`}>
+                  {(displayName || user?.email || "U")[0].toUpperCase()}
+                </div>
+              )}
+              <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer select-none">
+                {uploadingAvatar ? (
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+                ) : (
+                  <>
+                    <Camera className="w-5 h-5 text-white mb-0.5" />
+                    <span className="text-[10px] text-white font-semibold">Upload</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  disabled={uploadingAvatar}
+                  className="hidden"
+                />
+              </label>
+            </div>
             <div className="flex flex-col gap-1 min-w-0">
               <span className="text-base font-semibold text-theme-text-primary truncate">{displayName || "Operator"}</span>
               <span className="text-xs text-theme-text-muted truncate">{user?.email}</span>

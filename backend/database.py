@@ -3,13 +3,36 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 import datetime
 import uuid
-from backend.config import DATABASE_URL
+import os
+from backend.config import DATABASE_URL as CONFIG_DATABASE_URL
 
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-)
+DATABASE_URL = CONFIG_DATABASE_URL
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+if not DATABASE_URL:
+    DATABASE_URL = f"sqlite:///{os.path.join(workspace_root, 'nexus.db')}"
+
+# Production pool parameters for PostgreSQL
+if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=1800,
+        pool_pre_ping=True
+    )
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
 
 class User(Base):
     __tablename__ = "users"
@@ -157,19 +180,45 @@ class RefreshToken(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
-    # Check if avatar column exists in users table, if not, add it
-    try:
-        from sqlalchemy import text
-        with engine.connect() as conn:
-            result = conn.execute(text("PRAGMA table_info(users);")).fetchall()
-            columns = [row[1] for row in result]
-            if "avatar" not in columns:
-                conn.execute(text("ALTER TABLE users ADD COLUMN avatar VARCHAR;"))
-                conn.commit()
-                print("[DATABASE] Migrated users table: added avatar column.")
-    except Exception as e:
-        print("[DATABASE] Auto-migration warning:", e)
+    if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
+        # Run Alembic migrations programmatically
+        print("[DATABASE] PostgreSQL detected. Running database migrations...")
+        try:
+            from alembic.config import Config
+            from alembic import command
+            alembic_ini_path = os.path.join(workspace_root, "alembic.ini")
+            if os.path.exists(alembic_ini_path):
+                cfg = Config(alembic_ini_path)
+                cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
+                command.upgrade(cfg, "head")
+                print("[DATABASE] Alembic migrations run successfully.")
+            else:
+                print("[DATABASE] WARNING: alembic.ini not found at", alembic_ini_path)
+                # Fallback to create all
+                Base.metadata.create_all(bind=engine)
+        except Exception as e:
+            print("[DATABASE] Alembic programmatic migration failed:", e)
+            print("[DATABASE] Falling back to create_all...")
+            try:
+                Base.metadata.create_all(bind=engine)
+            except Exception as e_fallback:
+                print("[DATABASE] Fallback create_all failed:", e_fallback)
+    else:
+        # Local SQLite development
+        Base.metadata.create_all(bind=engine)
+        # Check if avatar column exists in users table (PRAGMA only works in SQLite)
+        try:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                result = conn.execute(text("PRAGMA table_info(users);")).fetchall()
+                columns = [row[1] for row in result]
+                if "avatar" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN avatar VARCHAR;"))
+                    conn.commit()
+                    print("[DATABASE] Migrated SQLite users table: added avatar column.")
+        except Exception as e:
+            print("[DATABASE] Auto-migration warning (SQLite):", e)
+
 
 def get_db():
     db = SessionLocal()

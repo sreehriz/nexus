@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router-dom";
+import { BACKEND_URL } from "@/src/config";
 import {
   Search,
   LayoutDashboard,
@@ -118,7 +119,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       action: async () => {
         onClose();
         const token = localStorage.getItem("nexus_jwt");
-        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
         try {
           const res = await fetch(`${BACKEND_URL}/api/createMeeting`, {
             method: "POST",

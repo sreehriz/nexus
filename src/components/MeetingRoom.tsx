@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { BACKEND_URL } from "@/src/config";
 import {
   Mic,
   MicOff,
@@ -83,7 +84,6 @@ import PostMeetingScreen from "./meeting/PostMeetingScreen";
 
 export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; onLeave?: () => void }) {
   const { user } = useAuth();
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
   const userName = user?.user_metadata?.fullName || user?.user_metadata?.username || user?.email?.split("@")[0] || "You";
 
   // --- Layout & Flow States ---

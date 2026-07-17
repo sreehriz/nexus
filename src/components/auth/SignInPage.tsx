@@ -11,6 +11,7 @@ import AuthButton from "./AuthButton";
 import SocialLoginButton from "./SocialLoginButton";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
+import { BACKEND_URL } from "@/src/config";
 
 const signInSchema = z.object({
   email: z
@@ -86,7 +87,6 @@ export default function SignInPage({ onNavigate, onSuccess }: SignInPageProps) {
   const handleOAuthLogin = async (provider: "google" | "github" | "microsoft" | "apple") => {
     setLoading(true);
     setErrorMessage("");
-    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
     window.location.href = `${BACKEND_URL}/api/auth/${provider}`;
   };
 

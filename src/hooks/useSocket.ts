@@ -1,7 +1,9 @@
 import { useEffect, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
+import { BACKEND_URL } from "@/src/config";
 
-const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+const SOCKET_URL = BACKEND_URL;
+
 
 interface UseSocketOptions {
   roomCode: string;

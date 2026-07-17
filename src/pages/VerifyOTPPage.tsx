@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { BACKEND_URL } from "@/src/config";
 import { motion, AnimatePresence } from "motion/react";
 import { Mail, ShieldAlert, Sparkles, CheckCircle2, ArrowRight } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -142,7 +143,6 @@ export default function VerifyOTPPage() {
     try {
       // Trigger new OTP signal (re-request password reset or resend verify email code)
       // Since signup handles initial trigger, we can fetch reset/verification dispatch endpoints.
-      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
       const formData = new FormData();
       formData.append("userId", userId);
       formData.append("email", email);

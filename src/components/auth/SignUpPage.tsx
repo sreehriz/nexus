@@ -10,6 +10,7 @@ import AuthInput from "./AuthInput";
 import AuthButton from "./AuthButton";
 import SocialLoginButton from "./SocialLoginButton";
 import { useAuth } from "../../context/AuthContext";
+import { BACKEND_URL } from "@/src/config";
 
 const signUpSchema = z.object({
   fullName: z.string().min(1, "Please enter your full name"),
@@ -163,7 +164,6 @@ export default function SignUpPage({ onNavigate, onSuccess }: SignUpPageProps) {
   const handleOAuthSignUp = async (provider: "google" | "github" | "microsoft" | "apple") => {
     setLoading(true);
     setErrorMessage("");
-    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
     window.location.href = `${BACKEND_URL}/api/auth/${provider}`;
   };
 

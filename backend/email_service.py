@@ -6,7 +6,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
 
-from backend.config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, N8N_WEBHOOK_URL
+from backend.config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, N8N_WEBHOOK_URL, RESEND_API_KEY
 
 
 def _dispatch_n8n(payload: dict) -> bool:
@@ -36,6 +36,42 @@ def _dispatch_n8n(payload: dict) -> bool:
     except Exception as e:
         print(f"[EMAIL ENGINE] n8n webhook failed: {e}")
         return False
+
+
+def _dispatch_resend(to_email: str, subject: str, html_content: str) -> bool:
+    """
+    Send email via Resend REST API using httpx.
+    """
+    if not RESEND_API_KEY:
+        return False
+    try:
+        resend_from = SMTP_FROM or "onboarding@resend.dev"
+        # If using default sandbox key and a custom domain is not set, use onboarding@resend.dev
+        if "re_" in RESEND_API_KEY and ("@nexus.app" in resend_from or "localhost" in resend_from):
+            resend_from = "onboarding@resend.dev"
+            
+        headers = {
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "from": f"Nexus <{resend_from}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content,
+        }
+        import httpx
+        res = httpx.post("https://api.resend.com/emails", json=payload, headers=headers, timeout=10)
+        if res.status_code in (200, 201, 202):
+            print(f"[EMAIL ENGINE] Resend delivered successfully → {to_email}")
+            return True
+        else:
+            print(f"[EMAIL ENGINE] Resend failed with code {res.status_code}: {res.text}")
+            return False
+    except Exception as e:
+        print(f"[EMAIL ENGINE] Resend failed: {e}")
+        return False
+
 
 
 # Responsive premium dark theme CSS template
@@ -180,7 +216,7 @@ EMAIL_TEMPLATE = """
 def send_email(to_email: str, subject: str, title: str, html_body: str) -> bool:
     """
     Sends an HTML email to the specified user. 
-    If SMTP host credentials are not configured, it fallback logs the details to stdout.
+    Checks Resend API, SMTP, or falls back to console logging.
     """
     html_content = EMAIL_TEMPLATE.format(title=title, body_content=html_body)
 
@@ -194,30 +230,38 @@ def send_email(to_email: str, subject: str, title: str, html_body: str) -> bool:
     print(f"Body:\n{clean_print}")
     print(f"=====================================")
 
-    # If configuration is missing, consider successful simulation print
-    if not SMTP_HOST or not SMTP_USER or not SMTP_PASSWORD:
-        print("[EMAIL ENGINE] SMTP host details missing in environment. Logged details above.")
-        return True
+    # 1. Try Resend Delivery if key is configured
+    if RESEND_API_KEY:
+        ok = _dispatch_resend(to_email, subject, html_content)
+        if ok:
+            return True
 
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = SMTP_FROM
-        msg["To"] = to_email
+    # 2. Try SMTP Delivery if configured
+    if SMTP_HOST and SMTP_USER and SMTP_PASSWORD:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = SMTP_FROM
+            msg["To"] = to_email
 
-        msg.attach(MIMEText(html_content, "html"))
+            msg.attach(MIMEText(html_content, "html"))
 
-        # Setup SMTP Server
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_FROM, to_email, msg.as_string())
-        server.quit()
-        print("[EMAIL ENGINE] Email dispatched successfully via SMTP.")
-        return True
-    except Exception as e:
-        print(f"[EMAIL ENGINE] Failed to deliver email via SMTP: {e}")
-        return False
+            # Setup SMTP Server
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(SMTP_FROM, to_email, msg.as_string())
+            server.quit()
+            print("[EMAIL ENGINE] Email dispatched successfully via SMTP.")
+            return True
+        except Exception as e:
+            print(f"[EMAIL ENGINE] Failed to deliver email via SMTP: {e}")
+            return False
+
+    # 3. Development fallback logging
+    print("[EMAIL ENGINE] Delivery credentials missing in environment. Logged details to console.")
+    return True
+
 
 def send_welcome_email(to_email: str, name: str, otp: str) -> bool:
     # Try n8n webhook first (fastest for development with n8n running locally)

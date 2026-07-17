@@ -8,8 +8,8 @@ import {
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import CinematicBackground from "../components/CinematicBackground";
+import { BACKEND_URL } from "@/src/config";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 type Preference = {
   autoMute: boolean;

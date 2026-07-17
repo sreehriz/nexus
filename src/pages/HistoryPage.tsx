@@ -7,8 +7,8 @@ import { useToast } from "../context/ToastContext";
 import { SkeletonMeeting } from "../components/ui/Skeleton";
 import { NoMeetingsEmpty } from "../components/ui/EmptyState";
 import CinematicBackground from "../components/CinematicBackground";
+import { BACKEND_URL } from "@/src/config";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 interface MeetingRecord {
   id: string;

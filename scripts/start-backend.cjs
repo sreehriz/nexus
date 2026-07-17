@@ -36,7 +36,11 @@ function checkDeps(pythonCmd) {
     { name: "pyjwt", importName: "jwt" },
     { name: "python-socketio", importName: "socketio" },
     { name: "httpx", importName: "httpx" },
-    { name: "python-multipart", importName: "multipart" }
+    { name: "python-multipart", importName: "multipart" },
+    { name: "psycopg2-binary", importName: "psycopg2" },
+    { name: "alembic", importName: "alembic" },
+    { name: "cloudinary", importName: "cloudinary" },
+    { name: "sentry-sdk[fastapi]", importName: "sentry_sdk" }
   ];
   const missing = [];
   for (const pkg of required) {

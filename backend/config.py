@@ -37,6 +37,10 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID", "")
+APPLE_TEAM_ID = os.getenv("APPLE_TEAM_ID", "")
+APPLE_KEY_ID = os.getenv("APPLE_KEY_ID", "")
+APPLE_PRIVATE_KEY = os.getenv("APPLE_PRIVATE_KEY", "").replace("\\n", "\n")
 
 # ── Email / SMTP ──────────────────────────────────────────────────────────────
 SMTP_HOST = os.getenv("SMTP_HOST", "")
@@ -49,6 +53,17 @@ SMTP_FROM = os.getenv("SMTP_FROM", "no-reply@nexus.app")
 # Set this to enable n8n email automation (preferred over SMTP in development)
 # Example: http://localhost:5678/webhook/nexus-email
 N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "")
+
+# ── Resend ────────────────────────────────────────────────────────────────────
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+
+# ── Cloudinary ────────────────────────────────────────────────────────────────
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "")
+
+# ── Sentry DSN ────────────────────────────────────────────────────────────────
+SENTRY_DSN = os.getenv("SENTRY_DSN", "")
 
 # ── Startup validation ────────────────────────────────────────────────────────
 _warnings = []

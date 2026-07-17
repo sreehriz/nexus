@@ -12,7 +12,25 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import socketio
 
-from backend.config import GEMINI_API_KEY, APP_URL, UPLOAD_DIR, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, COOKIE_SECURE, N8N_WEBHOOK_URL
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+from backend.config import (
+    GEMINI_API_KEY, APP_URL, UPLOAD_DIR, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+    GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, APPLE_CLIENT_ID, APPLE_TEAM_ID,
+    APPLE_KEY_ID, APPLE_PRIVATE_KEY, COOKIE_SECURE, N8N_WEBHOOK_URL,
+    CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, SENTRY_DSN
+)
+
+# Initialize Sentry
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[FastApiIntegration()],
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
+
 from backend.database import init_db, get_db, User, Meeting, Participant, Message, File, Recording, Attendance, OTPCode, RefreshToken, UserSettings, Notification
 from backend.auth import (
     get_password_hash,
@@ -37,12 +55,40 @@ app = FastAPI(
     description="Production-ready real-time meeting platform with AI features",
 )
 
-# ── Health Check ──────────────────────────────────────────────────────────────
+# ── Health, Version & Status Check Endpoints ─────────────────────────────────
+@app.get("/health")
+@app.head("/health")
+def health_root():
+    return {"status": "ok", "timestamp": datetime.datetime.utcnow().isoformat()}
+
 @app.get("/api/health")
 @app.head("/api/health")
 def health_check():
     """Lightweight health probe used by the frontend wait-on script."""
     return {"status": "ok", "service": "nexus-backend", "timestamp": datetime.datetime.utcnow().isoformat()}
+
+@app.get("/version")
+def version_root():
+    return {"version": "1.0.0", "service": "nexus-backend"}
+
+@app.get("/status")
+def status_root(db: Session = Depends(get_db)):
+    # Perform database connection test query
+    db_ok = False
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception as e:
+        print("[STATUS CHECK] DB Connection test failed:", e)
+        
+    return {
+        "status": "healthy" if db_ok else "unhealthy",
+        "database": "connected" if db_ok else "disconnected",
+        "service": "nexus-backend",
+        "timestamp": datetime.datetime.utcnow().isoformat()
+    }
+
 
 # Setup CORS middleware — allow configured APP_URL or local origins
 _allowed_origins = [
@@ -72,6 +118,31 @@ public_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "public")
 os.makedirs(public_dir, exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+# ── Cloudinary Configuration & Helper ─────────────────────────────────────────
+if CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True
+    )
+
+def upload_to_cloudinary(file: UploadFile, folder: str = "nexus") -> Optional[str]:
+    if not CLOUDINARY_CLOUD_NAME or not CLOUDINARY_API_KEY or not CLOUDINARY_API_SECRET:
+        return None
+    try:
+        file.file.seek(0)
+        res = cloudinary.uploader.upload(
+            file.file,
+            folder=folder,
+            resource_type="auto"
+        )
+        return res.get("secure_url")
+    except Exception as e:
+        print("[CLOUDINARY] Upload failed:", e)
+        return None
+
 
 # --- Simple In-Memory Rate Limiter (no external dep required) ---
 # Structure: { ip: [(timestamp, ...), ...] }
@@ -516,7 +587,7 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
 
 # --- OAuth 2.0 Redirections and Callbacks ---
 
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 
 @app.get("/api/auth/google")
 def google_auth(request: Request):
@@ -724,9 +795,311 @@ async def github_callback(code: str, request: Request, response: Response, db: S
     )
     return redir
 
+@app.get("/api/auth/apple")
+def apple_auth(request: Request):
+    # Check if credentials are fully configured for real Apple Sign-In
+    is_apple_configured = all([APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY])
+    
+    if is_apple_configured:
+        base_url = str(request.base_url).rstrip("/")
+        redirect_uri = f"{base_url}/api/auth/apple/callback"
+        scope = "name email"
+        url = (
+            f"https://appleid.apple.com/auth/authorize?"
+            f"client_id={APPLE_CLIENT_ID}&"
+            f"redirect_uri={redirect_uri}&"
+            f"response_type=code&"
+            f"scope={scope}&"
+            f"response_mode=form_post&"
+            f"state=apple-auth-state"
+        )
+        return RedirectResponse(url)
+    else:
+        # Return a beautiful mockup sandbox login UI
+        mock_id = str(uuid.uuid4())[:8]
+        html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in with Apple ID</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {{
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #09090b;
+            background-image: radial-gradient(circle at 50% 50%, #17153b 0%, #09090b 100%);
+            min-height: 100vh;
+            color: #f4f4f5;
+        }}
+        .glass-panel {{
+            background: rgba(15, 15, 20, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        }}
+        .apple-btn {{
+            background: #ffffff;
+            color: #000000;
+            transition: all 0.2s ease-in-out;
+        }}
+        .apple-btn:hover {{
+            background: #e4e4e7;
+            transform: translateY(-1px);
+        }}
+        .input-glow:focus {{
+            border-color: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.05);
+        }}
+        @keyframes float {{
+            0% {{ transform: translateY(0px) rotate(0deg); }}
+            50% {{ transform: translateY(-15px) rotate(3deg); }}
+            100% {{ transform: translateY(0px) rotate(0deg); }}
+        }}
+        .floating-element {{
+            animation: float 8s ease-in-out infinite;
+        }}
+    </style>
+</head>
+<body class="flex items-center justify-center p-4 relative overflow-hidden">
+    <!-- Floating background accents -->
+    <div class="absolute w-72 h-72 rounded-full bg-indigo-500/5 blur-3xl -top-20 -left-20 pointer-events-none floating-element"></div>
+    <div class="absolute w-96 h-96 rounded-full bg-purple-500/5 blur-3xl -bottom-20 -right-20 pointer-events-none floating-element" style="animation-delay: -3s;"></div>
+
+    <div class="w-full max-w-md glass-panel rounded-3xl p-8 relative z-10 text-center">
+        <!-- Apple SVG Logo -->
+        <div class="flex justify-center mb-6">
+            <div class="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shadow-inner floating-element">
+                <svg class="w-8 h-8 fill-current text-white" viewBox="0 0 170 170">
+                    <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.39.13-9.13-1.85-14.24-5.96-3.74-3.07-7.61-7.79-11.62-14.15-9.14-14.37-13.71-29.87-13.71-46.5 0-14.88 4.12-27.1 12.35-36.63 8.24-9.53 18.06-14.36 29.47-14.48 4.8.12 10.05 1.62 15.75 4.5 5.71 2.87 9.5 4.3 11.37 4.3 1.5 0 5.48-1.5 11.97-4.5 6.48-3 11.89-4.37 16.23-4.12 15.84.75 27.69 6.84 35.53 18.25-13.84 8.35-20.65 19.5-20.4 33.45.25 10.72 4.17 19.78 11.72 27.18 7.55 7.4 16.3 11.19 26.24 11.38-2.12 6.13-4.56 12.04-7.3 17.75zM119.22 33.74c0-7.73 2.76-14.88 8.29-21.43 5.53-6.55 12.27-10.47 20.21-11.75.13 1 .2 1.87.2 2.62 0 7.36-2.85 14.42-8.54 21.18-5.69 6.77-12.63 10.9-20.83 12.39-.12-1-.18-2-.18-3.01z" />
+                </svg>
+            </div>
+        </div>
+
+        <h2 class="text-2xl font-bold text-white mb-2">Sign in with Apple ID</h2>
+        <p class="text-xs text-zinc-400 mb-8 font-mono uppercase tracking-wider">Simulated Authorization Sandbox</p>
+
+        <form action="/api/auth/apple/callback" method="POST" class="space-y-4 text-left">
+            <input type="hidden" name="state" value="apple-auth-state">
+            <input type="hidden" name="code" value="mock_apple_auth_code_{mock_id}">
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-mono uppercase tracking-wider text-zinc-400">Full Name</label>
+                <input
+                    type="text"
+                    name="name"
+                    value="Operator Nexus"
+                    required
+                    class="bg-zinc-900/60 border border-zinc-800 focus:border-zinc-700 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-colors input-glow"
+                    placeholder="e.g. Operator Nexus"
+                >
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-mono uppercase tracking-wider text-zinc-400">Email Address</label>
+                <input
+                    type="email"
+                    id="email-input"
+                    name="email"
+                    value="operator@nexus.app"
+                    required
+                    class="bg-zinc-900/60 border border-zinc-800 focus:border-zinc-700 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-colors input-glow"
+                    placeholder="e.g. operator@nexus.app"
+                >
+            </div>
+
+            <div class="flex items-center gap-2 pt-2">
+                <input
+                    type="checkbox"
+                    id="private-relay"
+                    class="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-indigo-600 focus:ring-zinc-700 focus:ring-opacity-25"
+                    onchange="togglePrivateRelay()"
+                >
+                <label for="private-relay" class="text-xs text-zinc-400 select-none cursor-pointer">Simulate Apple Private Relay Email</label>
+            </div>
+
+            <div class="pt-4 space-y-2">
+                <button
+                    type="submit"
+                    class="w-full cursor-pointer py-3.5 text-xs font-semibold uppercase tracking-wider apple-btn rounded-xl flex items-center justify-center gap-1.5 shadow-lg outline-none"
+                >
+                    <span>Continue as Mock User</span>
+                </button>
+                
+                <a
+                    href="{APP_URL}/login"
+                    class="block w-full text-center py-3.5 text-xs font-semibold uppercase tracking-wider border border-zinc-800 text-zinc-400 hover:text-white rounded-xl transition-all outline-none"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function togglePrivateRelay() {{
+            const checkbox = document.getElementById('private-relay');
+            const emailInput = document.getElementById('email-input');
+            if (checkbox.checked) {{
+                const randomId = Math.random().toString(36).substring(2, 10);
+                emailInput.value = randomId + '@privaterelay.appleid.com';
+            }} else {{
+                emailInput.value = 'operator@nexus.app';
+            }}
+        }}
+    </script>
+</body>
+</html>"""
+        return HTMLResponse(content=html_content, status_code=200)
+
+@app.api_route("/api/auth/apple/callback", methods=["GET", "POST"])
+async def apple_callback(request: Request, db: Session = Depends(get_db)):
+    form_data = {}
+    if request.method == "POST":
+        try:
+            form_data = await request.form()
+        except Exception:
+            pass
+            
+    code = form_data.get("code") or request.query_params.get("code")
+    id_token = form_data.get("id_token") or request.query_params.get("id_token")
+    state = form_data.get("state") or request.query_params.get("state")
+    user_str = form_data.get("user") or request.query_params.get("user")
+    
+    # Check if this is a mock callback
+    is_mock = False
+    if not all([APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY]):
+        is_mock = True
+    elif code and str(code).startswith("mock_apple_auth_code_"):
+        is_mock = True
+        
+    email = None
+    full_name = None
+    
+    if is_mock:
+        email = form_data.get("email") or request.query_params.get("email") or "operator@nexus.app"
+        name_val = form_data.get("name") or request.query_params.get("name") or "Operator Nexus"
+        full_name = name_val
+    else:
+        if not code:
+            raise HTTPException(status_code=400, detail="Missing authorization code from Apple.")
+            
+        token_url = "https://appleid.apple.com/auth/token"
+        import jwt
+        import time
+        
+        # Generate client secret dynamically
+        headers = {
+            "alg": "ES256",
+            "kid": APPLE_KEY_ID
+        }
+        payload = {
+            "iss": APPLE_TEAM_ID,
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 600, # 10 minutes
+            "aud": "https://appleid.apple.com",
+            "sub": APPLE_CLIENT_ID
+        }
+        
+        try:
+            client_secret = jwt.encode(
+                payload,
+                APPLE_PRIVATE_KEY,
+                algorithm="ES256",
+                headers=headers
+            )
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to generate Apple client secret: {str(e)}")
+            
+        data = {
+            "client_id": APPLE_CLIENT_ID,
+            "client_secret": client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": f"{str(request.base_url).rstrip('/')}/api/auth/apple/callback"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            res = await client.post(token_url, data=data)
+            if res.status_code != 200:
+                raise HTTPException(status_code=400, detail=f"Apple token exchange failed: {res.text}")
+            tokens = res.json()
+            
+        id_token_jwt = tokens.get("id_token")
+        try:
+            decoded = jwt.decode(id_token_jwt, options={"verify_signature": False})
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid ID token from Apple.")
+            
+        email = decoded.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="No email returned in Apple ID token.")
+            
+        if user_str:
+            try:
+                user_data = json.loads(user_str)
+                name_info = user_data.get("name", {})
+                first = name_info.get("firstName") or ""
+                last = name_info.get("lastName") or ""
+                full_name = f"{first} {last}".strip() or None
+            except Exception:
+                pass
+                
+        if not full_name:
+            full_name = email.split("@")[0]
+            
+    # Process user in database
+    import random
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(
+            email=email,
+            username=email.split("@")[0] + "_" + str(random.randint(100, 999)),
+            password_hash=get_password_hash(str(uuid.uuid4())),
+            full_name=full_name,
+            provider="apple",
+            avatar=None,
+            email_verified=True,
+            last_login=datetime.datetime.utcnow()
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        user.last_login = datetime.datetime.utcnow()
+        if user.provider == "local":
+            user.provider = "apple"
+        user.email_verified = True
+        db.commit()
+        
+    acc_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name, "avatarColor": user.avatar_color, "avatar": getattr(user, "avatar", None)})
+    ref_token = create_refresh_token({"sub": user.id})
+    
+    rt_record = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_otp(ref_token),
+        expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    )
+    db.add(rt_record)
+    db.commit()
+    
+    redir = RedirectResponse(f"{APP_URL}/dashboard?token={acc_token}")
+    redir.set_cookie(
+        key="nexus_refresh_token",
+        value=ref_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        max_age=7*24*60*60
+    )
+    return redir
+
 @app.post("/api/auth/disconnect/{provider}")
 def disconnect_provider(provider: str, user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
-    if provider not in ["google", "github"]:
+    if provider not in ["google", "github", "apple"]:
+
         raise HTTPException(status_code=400, detail="Invalid provider")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -918,13 +1291,27 @@ async def upload_file(
     filename = f"{roomCode}_{file_id}{ext}"
     dest_path = os.path.join(UPLOAD_DIR, filename)
     
-    with open(dest_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    size_in_mb = os.path.getsize(dest_path) / (1024 * 1024)
-    size_str = f"{size_in_mb:.2f} MB" if size_in_mb >= 0.1 else f"{size_in_mb*1024:.1f} KB"
+    # Calculate size from stream
+    try:
+        file.file.seek(0, 2)
+        size_in_bytes = file.file.tell()
+        file.file.seek(0)
+        size_in_mb = size_in_bytes / (1024 * 1024)
+        size_str = f"{size_in_mb:.2f} MB" if size_in_mb >= 0.1 else f"{size_in_mb*1024:.1f} KB"
+    except Exception:
+        size_str = "0.0 KB"
+
+    # Try uploading to Cloudinary
+    cloudinary_url = upload_to_cloudinary(file, folder=f"nexus/{roomCode}")
     
-    file_url = f"/static/uploads/{filename}"
+    if cloudinary_url:
+        file_url = cloudinary_url
+    else:
+        # Fallback to local upload
+        file.file.seek(0)
+        with open(dest_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        file_url = f"/static/uploads/{filename}"
     
     db_file = File(
         meeting_id=roomCode,
@@ -959,10 +1346,17 @@ async def upload_recording(
     filename = f"rec_{roomCode}_{rec_id}.webm"
     dest_path = os.path.join(UPLOAD_DIR, filename)
     
-    with open(dest_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    file_url = f"/static/uploads/{filename}"
+    # Try uploading to Cloudinary
+    cloudinary_url = upload_to_cloudinary(file, folder=f"nexus/{roomCode}/recordings")
+    
+    if cloudinary_url:
+        file_url = cloudinary_url
+    else:
+        # Fallback to local upload
+        file.file.seek(0)
+        with open(dest_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        file_url = f"/static/uploads/{filename}"
     
     # Store recording log
     db_rec = Recording(
@@ -984,6 +1378,7 @@ async def upload_recording(
         print("[RECORDING ALERT ERROR]:", e)
         
     return {"status": "ok", "url": file_url, "recordingId": db_rec.id}
+
 
 # --- Gemini AI Live Translation API ---
 
@@ -1226,6 +1621,46 @@ def update_user_profile(
         "fullName": user.full_name,
         "avatarColor": user.avatar_color,
     }
+
+@app.post("/api/user/avatar")
+async def upload_user_avatar(
+    file: UploadFile = FastAPIFile(...),
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    cloudinary_url = upload_to_cloudinary(file, folder="nexus/avatars")
+    
+    if cloudinary_url:
+        file_url = cloudinary_url
+    else:
+        # Fallback to local
+        file_id = str(uuid.uuid4())
+        ext = os.path.splitext(file.filename)[1]
+        filename = f"avatar_{user_id}_{file_id}{ext}"
+        dest_path = os.path.join(UPLOAD_DIR, filename)
+        with open(dest_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        file_url = f"/static/uploads/{filename}"
+        
+    user.avatar = file_url
+    db.commit()
+    db.refresh(user)
+    
+    # Regenerate access token with updated avatar URL
+    acc_token = create_access_token({
+        "sub": user.id,
+        "email": user.email,
+        "name": user.full_name,
+        "avatarColor": user.avatar_color,
+        "avatar": user.avatar
+    })
+    
+    return {"status": "ok", "avatar": file_url, "token": acc_token}
+
 
 
 # --- Nexus Memory™ Search API ---

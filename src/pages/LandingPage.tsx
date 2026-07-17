@@ -8,8 +8,8 @@ import HeroLeft from "../components/HeroLeft";
 import TestimonialsCard from "../components/TestimonialsCard";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { BACKEND_URL } from "@/src/config";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 const containerVariants = {
   hidden: { opacity: 0 },
