@@ -22,7 +22,7 @@ env/
 
 # ── Database ──────────────────────────────────────────────────────────────────
 # Uncomment to exclude SQLite DB from git (recommended for production)
-# nexus.db
+nexus.db
 *.db-journal
 *.db-shm
 *.db-wal
