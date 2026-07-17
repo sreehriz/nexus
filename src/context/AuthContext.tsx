@@ -8,7 +8,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ error: any; verificationRequired?: boolean; userId?: string; email?: string }>;
   signUp: (email: string, password: string, metadata: Record<string, any>) => Promise<{ error: any; verificationRequired?: boolean; userId?: string; email?: string }>;
   logout: () => Promise<{ error: any }>;
-  resetPassword: (email: string) => Promise<{ error: any }>;
+  resetPassword: (email: string) => Promise<{ error: any; userId?: string }>;
   refreshToken: () => Promise<boolean>;
   verifyOTP: (userId: string, otp: string, purpose: string) => Promise<{ error: any; status?: string; token?: string; user?: any }>;
   submitResetPassword: (userId: string, otp: string, newPw: string, confirmPw: string) => Promise<{ error: any }>;
@@ -61,7 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const loggedUser: User = {
             id: payload.sub,
             email: payload.email,
-            user_metadata: { fullName: payload.name || payload.email.split("@")[0], avatarColor: "from-indigo-500 to-cyan-400" },
+            user_metadata: {
+              fullName: payload.name || payload.email.split("@")[0],
+              avatarColor: payload.avatarColor || "from-indigo-500 to-cyan-400",
+              avatar: payload.avatar || null
+            },
             app_metadata: {},
             aud: "authenticated",
             created_at: new Date().toISOString(),
@@ -106,7 +110,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const loggedUser: User = {
           id: data.user.id,
           email,
-          user_metadata: { fullName: data.user.fullName, avatarColor: data.user.avatarColor },
+          user_metadata: {
+            fullName: data.user.fullName,
+            avatarColor: data.user.avatarColor || "from-indigo-500 to-cyan-400",
+            avatar: data.user.avatar || null
+          },
           app_metadata: {},
           aud: "authenticated",
           created_at: new Date().toISOString(),
@@ -173,7 +181,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const loggedUser: User = {
             id: data.user.id,
             email: data.user.email,
-            user_metadata: { fullName: data.user.fullName, avatarColor: data.user.avatarColor },
+            user_metadata: {
+              fullName: data.user.fullName,
+              avatarColor: data.user.avatarColor || "from-indigo-500 to-cyan-400",
+              avatar: data.user.avatar || null
+            },
             app_metadata: {},
             aud: "authenticated",
             created_at: new Date().toISOString(),
@@ -202,7 +214,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       const data = await res.json();
-      return { error: null }; // Always show success to prevent enumeration
+      if (res.ok) {
+        return { error: null, userId: data.userId };
+      } else {
+        return { error: { message: data.detail || "Reset failed" } };
+      }
     } catch {
       return { error: { message: "Cannot connect to server." } };
     }

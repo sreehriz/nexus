@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, LogIn, Sparkles, AlertCircle, Check, Users, ShieldCheck, Laptop, Bell } from "lucide-react";
+import { X, LogIn, Sparkles, AlertCircle, Check, Users, ShieldCheck, Laptop, Bell, CheckCircle } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import SpotlightNavbar from "../components/spotlight-navbar";
 import CinematicBackground from "../components/CinematicBackground";
@@ -691,6 +691,28 @@ export default function LandingPage() {
             <FaqAccordion />
           </motion.div>
         </section>
+
+        {/* CONTACT FORM SECTION */}
+        <section id="contact-form" className="w-full max-w-2xl mx-auto px-6 py-24 border-t border-theme-border/20">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.6 }}
+            className="flex flex-col gap-8 text-left"
+          >
+            <div className="text-center">
+              <h2 className="text-3xl font-display font-bold tracking-tight text-theme-text-primary mb-3">
+                Get in Touch
+              </h2>
+              <p className="text-sm text-theme-text-secondary">
+                Have questions or feedback? Drop us a line and our team will get back to you.
+              </p>
+            </div>
+
+            <ContactForm />
+          </motion.div>
+        </section>
       </main>
 
       {/* FOOTER */}
@@ -852,5 +874,126 @@ export default function LandingPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function ContactForm() {
+  const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !email || !subject || !message) {
+      toast("Please fill in all contact parameters.", "error");
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, subject, message })
+      });
+      if (res.ok) {
+        setSuccess(true);
+        toast("Message sent successfully. Link established.", "success");
+        setName("");
+        setEmail("");
+        setSubject("");
+        setMessage("");
+      } else {
+        const d = await res.json();
+        toast(d.detail || "Submission pipeline error.", "error");
+      }
+    } catch {
+      toast("Connection to Nexus server interrupted.", "error");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="glass-panel rounded-2xl p-8 border border-theme-border/20 text-center flex flex-col items-center gap-4">
+        <CheckCircle className="w-12 h-12 text-[#38EF7D]" />
+        <h3 className="text-xl font-bold text-theme-text-primary">Transmission Delivered</h3>
+        <p className="text-xs text-theme-text-secondary leading-relaxed">
+          Your secure contact handshake has been sent. Our team will link back on your frequency soon.
+        </p>
+        <button
+          onClick={() => setSuccess(false)}
+          className="mt-2 text-xs font-mono uppercase tracking-wider text-theme-text-primary hover:underline outline-none"
+        >
+          Send Another Message
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="glass-panel rounded-2xl p-6 border border-theme-border/20 flex flex-col gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-theme-text-secondary">Name</label>
+          <input
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Elena Rostova"
+            className="bg-theme-secondary/40 hover:bg-theme-secondary/60 focus:bg-theme-secondary/60 border border-theme-border focus:border-theme-text-primary rounded-xl px-3.5 py-3 text-sm text-theme-text-primary placeholder-theme-text-secondary/35 outline-none transition-colors"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-theme-text-secondary">Email Address</label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="e.g. elena@nexus.dev"
+            className="bg-theme-secondary/40 hover:bg-theme-secondary/60 focus:bg-theme-secondary/60 border border-theme-border focus:border-theme-text-primary rounded-xl px-3.5 py-3 text-sm text-theme-text-primary placeholder-theme-text-secondary/35 outline-none transition-colors"
+          />
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-mono uppercase tracking-wider text-theme-text-secondary">Subject</label>
+        <input
+          type="text"
+          required
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder="e.g. Integration options"
+          className="bg-theme-secondary/40 hover:bg-theme-secondary/60 focus:bg-theme-secondary/60 border border-theme-border focus:border-theme-text-primary rounded-xl px-3.5 py-3 text-sm text-theme-text-primary placeholder-theme-text-secondary/35 outline-none transition-colors"
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-mono uppercase tracking-wider text-theme-text-secondary">Message</label>
+        <textarea
+          required
+          rows={4}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type your message here..."
+          className="bg-theme-secondary/40 hover:bg-theme-secondary/60 focus:bg-theme-secondary/60 border border-theme-border focus:border-theme-text-primary rounded-xl px-3.5 py-3 text-sm text-theme-text-primary placeholder-theme-text-secondary/35 outline-none transition-colors resize-none"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={sending}
+        className="w-full cursor-pointer py-3.5 text-xs font-semibold uppercase tracking-wider text-theme-bg bg-theme-text-primary hover:opacity-90 disabled:opacity-50 rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition-all outline-none"
+      >
+        {sending ? (
+          <div className="w-4 h-4 border border-theme-bg/40 border-t-theme-bg rounded-full animate-spin" />
+        ) : (
+          <span>Transmit Handshake</span>
+        )}
+      </button>
+    </form>
   );
 }

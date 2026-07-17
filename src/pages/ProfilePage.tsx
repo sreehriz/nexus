@@ -47,6 +47,7 @@ export default function ProfilePage() {
   // Identity Form State
   const [displayName, setDisplayName] = useState("");
   const [selectedColor, setSelectedColor] = useState("from-indigo-500 to-cyan-400");
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [provider, setProvider] = useState("local");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -76,11 +77,13 @@ export default function ProfilePage() {
           setDisplayName(data.fullName || "");
           setSelectedColor(data.avatarColor || "from-indigo-500 to-cyan-400");
           setProvider(data.provider || "local");
+          setAvatar(data.avatar || null);
         }
       } catch (err) {
         console.error("Failed to load backend profile, falling back to local storage session.", err);
         setDisplayName(user?.user_metadata?.fullName || user?.user_metadata?.username || user?.email?.split("@")[0] || "");
         setSelectedColor(user?.user_metadata?.avatarColor || "from-indigo-500 to-cyan-400");
+        setAvatar(user?.user_metadata?.avatar || null);
       }
     };
     fetchProfile();
@@ -250,9 +253,17 @@ export default function ProfilePage() {
 
           {/* User info header block */}
           <div className="flex items-center gap-5 glass-panel rounded-2xl p-6 text-left">
-            <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${selectedColor} flex items-center justify-center text-white font-bold text-2xl select-none shadow-md shrink-0`}>
-              {(displayName || user?.email || "U")[0].toUpperCase()}
-            </div>
+            {avatar ? (
+              <img
+                src={avatar}
+                alt={displayName}
+                className="w-20 h-20 rounded-2xl object-cover shadow-md shrink-0 border border-theme-border/20"
+              />
+            ) : (
+              <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${selectedColor} flex items-center justify-center text-white font-bold text-2xl select-none shadow-md shrink-0`}>
+                {(displayName || user?.email || "U")[0].toUpperCase()}
+              </div>
+            )}
             <div className="flex flex-col gap-1 min-w-0">
               <span className="text-base font-semibold text-theme-text-primary truncate">{displayName || "Operator"}</span>
               <span className="text-xs text-theme-text-muted truncate">{user?.email}</span>

@@ -19,6 +19,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     full_name = Column(String, nullable=False)
     avatar_color = Column(String, default="from-indigo-500 to-cyan-400")
+    avatar = Column(String, nullable=True)
     provider = Column(String, default="local") # "local" | "google" | "github"
     email_verified = Column(Boolean, default=False)
     failed_login_attempts = Column(Integer, default=0)
@@ -157,6 +158,18 @@ class RefreshToken(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # Check if avatar column exists in users table, if not, add it
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            result = conn.execute(text("PRAGMA table_info(users);")).fetchall()
+            columns = [row[1] for row in result]
+            if "avatar" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN avatar VARCHAR;"))
+                conn.commit()
+                print("[DATABASE] Migrated users table: added avatar column.")
+    except Exception as e:
+        print("[DATABASE] Auto-migration warning:", e)
 
 def get_db():
     db = SessionLocal()

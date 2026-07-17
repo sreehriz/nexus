@@ -83,6 +83,7 @@ import PostMeetingScreen from "./meeting/PostMeetingScreen";
 
 export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; onLeave?: () => void }) {
   const { user } = useAuth();
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
   const userName = user?.user_metadata?.fullName || user?.user_metadata?.username || user?.email?.split("@")[0] || "You";
 
   // --- Layout & Flow States ---
@@ -151,7 +152,21 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
 
   // --- Dynamic Participants List ---
   const [participants, setParticipants] = useState<Participant[]>([
-    { id: "you", name: `You (${userName})`, role: "Participant", avatarColor: "from-zinc-200 to-zinc-400", isMuted: !isMicOn, isVideoOff: !isCamOn, isSharingScreen: false, isHandRaised: false, isPinned: false, ping: 12, audioLevel: 0, language: "en" }
+    {
+      id: "you",
+      name: `You (${userName})`,
+      role: "Participant",
+      avatarColor: user?.user_metadata?.avatarColor || "from-zinc-200 to-zinc-400",
+      avatar: user?.user_metadata?.avatar || null,
+      isMuted: !isMicOn,
+      isVideoOff: !isCamOn,
+      isSharingScreen: false,
+      isHandRaised: false,
+      isPinned: false,
+      ping: 12,
+      audioLevel: 0,
+      language: "en"
+    }
   ]);
 
   // --- Host Permissions & Controls ---
@@ -347,8 +362,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
   useEffect(() => {
     if (!localStream) return;
 
-    const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-    const socketUrl = isLocalhost ? "http://localhost:8000" : window.location.origin;
+    const socketUrl = BACKEND_URL;
 
     const socket = io(socketUrl, {
       transports: ["websocket"]
@@ -577,7 +591,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
 
       if (selectedTranslationLangRef.current !== "none" && data.language !== selectedTranslationLangRef.current) {
         try {
-          const res = await fetch("http://localhost:8000/api/translate", {
+          const res = await fetch(`${BACKEND_URL}/api/translate`, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
@@ -733,7 +747,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
           formData.append("roomCode", roomCode);
           formData.append("file", file);
           try {
-            await fetch("http://localhost:8000/api/recording/upload", {
+            await fetch(`${BACKEND_URL}/api/recording/upload`, {
               method: "POST",
               body: formData
             });
@@ -930,7 +944,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
     formData.append("senderName", userName);
 
     try {
-      const res = await fetch("http://localhost:8000/api/upload", {
+      const res = await fetch(`${BACKEND_URL}/api/upload`, {
         method: "POST",
         body: formData
       });
@@ -943,7 +957,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
             size: fileData.size,
             sender: userName,
             time: new Date().toTimeString().slice(0, 5),
-            url: `http://localhost:8000${fileData.url}`
+            url: `${BACKEND_URL}${fileData.url}`
           }
         });
       }
@@ -1097,7 +1111,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
   // --- AI Minutes Generative simulation ---
   const runSmartNoteify = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/ai/summary", {
+      const res = await fetch(`${BACKEND_URL}/api/ai/summary`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ roomCode })

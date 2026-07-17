@@ -192,17 +192,20 @@ async def proceed_join(sid, room_code, user_name, user_id, role, is_muted, is_ca
     participants_list = []
     for p in active_participants:
         # Determine avatar color: try fetching user info from DB if user exists
-        avatar = "from-indigo-500 to-cyan-400"
+        avatar_color = "from-indigo-500 to-cyan-400"
+        avatar_img = None
         if p.user_id:
             u = db.query(User).filter(User.id == p.user_id).first()
             if u:
-                avatar = u.avatar_color
+                avatar_color = u.avatar_color
+                avatar_img = getattr(u, "avatar", None)
         
         participants_list.append({
             "id": p.id, # socket id as connection id
             "name": p.name,
             "role": p.role,
-            "avatarColor": avatar,
+            "avatarColor": avatar_color,
+            "avatar": avatar_img,
             "isMuted": p.is_muted,
             "isVideoOff": p.is_camera_off,
             "isSharingScreen": False,
@@ -229,17 +232,20 @@ async def proceed_join(sid, room_code, user_name, user_id, role, is_muted, is_ca
     }, to=sid)
 
     # Notify other participants
-    avatar = "from-indigo-500 to-cyan-400"
+    avatar_color = "from-indigo-500 to-cyan-400"
+    avatar_img = None
     if user_id:
         u = db.query(User).filter(User.id == user_id).first()
         if u:
-            avatar = u.avatar_color
+            avatar_color = u.avatar_color
+            avatar_img = getattr(u, "avatar", None)
 
     await sio.emit("participant-joined", {
         "id": sid,
         "name": user_name,
         "role": role,
-        "avatarColor": avatar,
+        "avatarColor": avatar_color,
+        "avatar": avatar_img,
         "isMuted": is_muted,
         "isVideoOff": is_camera_off,
         "isSharingScreen": False,

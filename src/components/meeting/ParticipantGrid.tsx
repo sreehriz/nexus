@@ -119,11 +119,19 @@ export default function ParticipantGrid({
                         className="absolute inset-[-10px] rounded-full border border-theme-border/30 pointer-events-none"
                       />
                     )}
-                    <div
-                      className={`w-16 h-16 rounded-full bg-gradient-to-tr ${p.avatarColor} flex items-center justify-center text-xl font-bold text-black border border-theme-border/30`}
-                    >
-                      {p.name.charAt(0)}
-                    </div>
+                    {p.avatar ? (
+                      <img
+                        src={p.avatar}
+                        alt={p.name}
+                        className="w-16 h-16 rounded-full object-cover border border-theme-border/30 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                      />
+                    ) : (
+                      <div
+                        className={`w-16 h-16 rounded-full bg-gradient-to-tr ${p.avatarColor} flex items-center justify-center text-xl font-bold text-black border border-theme-border/30`}
+                      >
+                        {p.name.charAt(0)}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <VideoStream

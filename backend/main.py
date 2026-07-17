@@ -39,6 +39,7 @@ app = FastAPI(
 
 # ── Health Check ──────────────────────────────────────────────────────────────
 @app.get("/api/health")
+@app.head("/api/health")
 def health_check():
     """Lightweight health probe used by the frontend wait-on script."""
     return {"status": "ok", "service": "nexus-backend", "timestamp": datetime.datetime.utcnow().isoformat()}
@@ -245,8 +246,20 @@ def login(
     user.last_login = datetime.datetime.utcnow()
     db.commit()
     
+    # Send login security alert
+    try:
+        from backend.email_service import send_security_alert_email
+        send_security_alert_email(
+            user.email,
+            user.full_name,
+            alert_type="new_login",
+            alert_details=f"New login detected from IP {request.client.host if request.client else 'unknown'} at {user.last_login.isoformat()} UTC."
+        )
+    except Exception as e:
+        print("[SECURITY ALERT ERROR]:", e)
+    
     # Tokens
-    access_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
+    access_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name, "avatarColor": user.avatar_color, "avatar": getattr(user, "avatar", None)})
     refresh_token = create_refresh_token({"sub": user.id})
     
     # Store Refresh Token
@@ -275,7 +288,8 @@ def login(
             "id": user.id,
             "email": user.email,
             "fullName": user.full_name,
-            "avatarColor": user.avatar_color
+            "avatarColor": user.avatar_color,
+            "avatar": getattr(user, "avatar", None)
         }
     }
 
@@ -312,7 +326,7 @@ def refresh_token(request: Request, response: Response, db: Session = Depends(ge
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
         
-    new_access_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
+    new_access_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name, "avatarColor": user.avatar_color, "avatar": getattr(user, "avatar", None)})
     new_refresh_token = create_refresh_token({"sub": user.id})
     
     # Store rotated refresh token
@@ -380,7 +394,7 @@ def verify_otp(
         db.commit()
         
         # Log user in
-        access_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
+        access_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name, "avatarColor": user.avatar_color, "avatar": getattr(user, "avatar", None)})
         refresh_token = create_refresh_token({"sub": user.id})
         
         rt_record = RefreshToken(
@@ -407,7 +421,8 @@ def verify_otp(
                 "id": user.id,
                 "email": user.email,
                 "fullName": user.full_name,
-                "avatarColor": user.avatar_color
+                "avatarColor": user.avatar_color,
+                "avatar": getattr(user, "avatar", None)
             }
         }
         
@@ -481,6 +496,8 @@ def reset_password(
     # Update Password and revoke sessions
     user.password_hash = get_password_hash(newPassword)
     db.query(RefreshToken).filter(RefreshToken.user_id == userId).update({"revoked": True})
+    # Permanently delete reset OTP to prevent reuse
+    db.delete(otp_record)
     db.commit()
     
     send_password_changed_email(user.email, user.full_name)
@@ -563,6 +580,7 @@ async def google_callback(code: str, request: Request, response: Response, db: S
             password_hash=get_password_hash(str(uuid.uuid4())),
             full_name=full_name,
             provider="google",
+            avatar=avatar,
             email_verified=True,
             last_login=datetime.datetime.utcnow()
         )
@@ -571,12 +589,13 @@ async def google_callback(code: str, request: Request, response: Response, db: S
         db.refresh(user)
     else:
         user.last_login = datetime.datetime.utcnow()
+        user.avatar = avatar
         if user.provider == "local":
             user.provider = "google"
         user.email_verified = True
         db.commit()
         
-    acc_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
+    acc_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name, "avatarColor": user.avatar_color, "avatar": getattr(user, "avatar", None)})
     ref_token = create_refresh_token({"sub": user.id})
     
     rt_record = RefreshToken(
@@ -660,6 +679,7 @@ async def github_callback(code: str, request: Request, response: Response, db: S
     
     user = db.query(User).filter(User.email == email).first()
     import random
+    avatar = user_info.get("avatar_url")
     if not user:
         user = User(
             email=email,
@@ -667,6 +687,7 @@ async def github_callback(code: str, request: Request, response: Response, db: S
             password_hash=get_password_hash(str(uuid.uuid4())),
             full_name=full_name,
             provider="github",
+            avatar=avatar,
             email_verified=True,
             last_login=datetime.datetime.utcnow()
         )
@@ -675,12 +696,13 @@ async def github_callback(code: str, request: Request, response: Response, db: S
         db.refresh(user)
     else:
         user.last_login = datetime.datetime.utcnow()
+        user.avatar = avatar
         if user.provider == "local":
             user.provider = "github"
         user.email_verified = True
         db.commit()
         
-    acc_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name})
+    acc_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name, "avatarColor": user.avatar_color, "avatar": getattr(user, "avatar", None)})
     ref_token = create_refresh_token({"sub": user.id})
     
     rt_record = RefreshToken(
@@ -738,6 +760,16 @@ def change_password(
     db.query(RefreshToken).filter(RefreshToken.user_id == user_id).update({"revoked": True})
     db.commit()
     send_password_changed_email(user.email, user.full_name)
+    try:
+        from backend.email_service import send_security_alert_email
+        send_security_alert_email(
+            user.email,
+            user.full_name,
+            alert_type="password_changed",
+            alert_details="Your account password was updated successfully. All other active sessions have been revoked."
+        )
+    except Exception as e:
+        print("[SECURITY ALERT ERROR]:", e)
     return {"status": "ok", "detail": "Password updated successfully."}
 
 @app.post("/api/user/delete-account")
@@ -940,6 +972,17 @@ async def upload_recording(
     db.add(db_rec)
     db.commit()
     
+    # Send recording ready alert to meeting host
+    try:
+        meeting = db.query(Meeting).filter(Meeting.id == roomCode).first()
+        if meeting and meeting.host_id:
+            host = db.query(User).filter(User.id == meeting.host_id).first()
+            if host:
+                from backend.email_service import send_recording_ready_email
+                send_recording_ready_email(host.email, host.full_name, roomCode, file_url)
+    except Exception as e:
+        print("[RECORDING ALERT ERROR]:", e)
+        
     return {"status": "ok", "url": file_url, "recordingId": db_rec.id}
 
 # --- Gemini AI Live Translation API ---
@@ -1041,6 +1084,23 @@ async def generate_summary(
                     rec.action_items = json.dumps(ai_data.get("actionItems", []))
                     db.commit()
                     
+                # Send AI summary email to host
+                try:
+                    meeting = db.query(Meeting).filter(Meeting.id == roomCode).first()
+                    if meeting and meeting.host_id:
+                        host = db.query(User).filter(User.id == meeting.host_id).first()
+                        if host:
+                            from backend.email_service import send_ai_summary_email
+                            send_ai_summary_email(
+                                host.email,
+                                host.full_name,
+                                roomCode,
+                                ai_data.get("summary", ""),
+                                ai_data.get("actionItems", [])
+                            )
+                except Exception as e:
+                    print("[AI SUMMARY ALERT ERROR]:", e)
+                    
                 return ai_data
             else:
                 raise HTTPException(status_code=500, detail="Gemini API returned error code")
@@ -1131,6 +1191,7 @@ def get_user_profile(user_id: str = Depends(get_current_user_id), db: Session = 
         "username": user.username,
         "fullName": user.full_name,
         "avatarColor": user.avatar_color,
+        "avatar": getattr(user, "avatar", None),
         "provider": user.provider,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
     }
@@ -1469,6 +1530,82 @@ def create_notification(
     return {"status": "ok", "id": n.id}
 
 
+class MeetingInviteRequest(BaseModel):
+    roomCode: str
+    inviteeEmail: str
+    inviteeName: str
+    meetingTime: str
+
+@app.post("/api/meetings/invite")
+def invite_to_meeting(
+    body: MeetingInviteRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    host = db.query(User).filter(User.id == user_id).first()
+    if not host:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    from backend.email_service import send_meeting_invitation_email
+    ok = send_meeting_invitation_email(
+        to_email=body.inviteeEmail,
+        invitee_name=body.inviteeName,
+        host_name=host.full_name,
+        room_code=body.roomCode,
+        meeting_time=body.meetingTime
+    )
+    if ok:
+        return {"status": "ok", "detail": "Invitation sent successfully"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to send invitation")
+
+class MeetingReminderRequest(BaseModel):
+    roomCode: str
+    recipientEmail: str
+    recipientName: str
+    meetingTime: str
+
+@app.post("/api/meetings/reminder")
+def remind_meeting(
+    body: MeetingReminderRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    from backend.email_service import send_meeting_reminder_email
+    ok = send_meeting_reminder_email(
+        to_email=body.recipientEmail,
+        name=body.recipientName,
+        room_code=body.roomCode,
+        meeting_time=body.meetingTime
+    )
+    if ok:
+        return {"status": "ok", "detail": "Reminder sent successfully"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to send reminder")
+
+class ContactFormRequest(BaseModel):
+    name: str
+    email: str
+    subject: str
+    message: str
+
+@app.post("/api/contact")
+def submit_contact_form(body: ContactFormRequest):
+    if not body.name or not body.email or not body.subject or not body.message:
+        raise HTTPException(status_code=400, detail="All fields are required")
+        
+    from backend.email_service import send_contact_form_email
+    ok = send_contact_form_email(
+        name=body.name,
+        email=body.email,
+        subject=body.subject,
+        message=body.message
+    )
+    if ok:
+        return {"status": "ok", "detail": "Contact form submitted successfully"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to submit form")
+
+
 # Mount Socket.IO as ASGI app inside FastAPI
 asgi_app = socketio.ASGIApp(sio, other_asgi_app=app)
-app.mount("/", asgi_app)  # Route root / to socketio app which falls back to fastapi

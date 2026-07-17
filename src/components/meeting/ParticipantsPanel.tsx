@@ -66,11 +66,19 @@ export default function ParticipantsPanel({
             className="p-2.5 rounded-xl bg-theme-surface/40 hover:bg-theme-surface/65 border border-theme-border/20 flex items-center justify-between transition-colors"
           >
             <div className="flex items-center gap-2.5">
-              <div
-                className={`w-7 h-7 rounded-full bg-gradient-to-tr ${p.avatarColor} flex items-center justify-center text-[10px] font-bold text-black border border-theme-border/30`}
-              >
-                {p.name.charAt(0)}
-              </div>
+              {p.avatar ? (
+                <img
+                  src={p.avatar}
+                  alt={p.name}
+                  className="w-7 h-7 rounded-full object-cover border border-theme-border/30 shrink-0"
+                />
+              ) : (
+                <div
+                  className={`w-7 h-7 rounded-full bg-gradient-to-tr ${p.avatarColor} flex items-center justify-center text-[10px] font-bold text-black border border-theme-border/30 shrink-0`}
+                >
+                  {p.name.charAt(0)}
+                </div>
+              )}
               <div className="flex flex-col">
                 <span className="text-xs font-semibold text-theme-text-primary truncate max-w-[120px]" title={p.name}>
                   {p.name}

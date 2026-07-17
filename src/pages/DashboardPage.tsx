@@ -275,9 +275,17 @@ export default function DashboardPage() {
               to="/profile"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary hover:bg-theme-text-primary/5 transition-all"
             >
-              <div
-                className={`w-5 h-5 rounded-full bg-gradient-to-br ${avatarColor} shrink-0`}
-              />
+              {user?.user_metadata?.avatar ? (
+                <img
+                  src={user.user_metadata.avatar}
+                  alt={userName}
+                  className="w-5 h-5 rounded-full object-cover shrink-0 border border-theme-border/20"
+                />
+              ) : (
+                <div
+                  className={`w-5 h-5 rounded-full bg-gradient-to-br ${avatarColor} shrink-0`}
+                />
+              )}
               <span className="truncate">{userName}</span>
             </Link>
             <button

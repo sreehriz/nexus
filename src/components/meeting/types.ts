@@ -5,6 +5,7 @@ export interface Participant {
   name: string;
   role: "Organizer" | "Co-Host" | "Participant";
   avatarColor: string;
+  avatar?: string | null;
   isMuted: boolean;
   isVideoOff: boolean;
   isSharingScreen: boolean;

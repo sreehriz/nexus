@@ -28,18 +28,22 @@ function checkPython() {
 }
 
 function checkDeps(pythonCmd) {
-  const required = ["fastapi", "uvicorn", "sqlalchemy", "passlib", "pyjwt", "python_socketio", "httpx", "python_multipart"];
+  const required = [
+    { name: "fastapi", importName: "fastapi" },
+    { name: "uvicorn[standard]", importName: "uvicorn" },
+    { name: "sqlalchemy", importName: "sqlalchemy" },
+    { name: "passlib", importName: "passlib" },
+    { name: "pyjwt", importName: "jwt" },
+    { name: "python-socketio", importName: "socketio" },
+    { name: "httpx", importName: "httpx" },
+    { name: "python-multipart", importName: "multipart" }
+  ];
   const missing = [];
   for (const pkg of required) {
     try {
-      execSync(`${pythonCmd} -c "import ${pkg.replace(/-/g, '_')}"`, { stdio: "pipe" });
+      execSync(`${pythonCmd} -c "import ${pkg.importName}"`, { stdio: "pipe" });
     } catch {
-      // Try alternative import names
-      try {
-        execSync(`${pythonCmd} -c "import ${pkg}"`, { stdio: "pipe" });
-      } catch {
-        missing.push(pkg);
-      }
+      missing.push(pkg.name);
     }
   }
   if (missing.length > 0) {

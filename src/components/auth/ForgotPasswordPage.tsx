@@ -90,36 +90,17 @@ export default function ForgotPasswordPage() {
     setEmailAddress(data.email);
 
     try {
-      // Mock / real password reset trigger
-      await resetPassword(data.email);
+      const res = await resetPassword(data.email);
       setLoading(false);
-      toast("Handshake signal sent successfully", "success");
       
-      // Since security logic hides existence, always prompt OTP screen.
-      // We need user ID for OTP verification. For local testing or generic response, 
-      // the backend returns user ID if found, or we can look up from response.
-      // To bypass and enable local user testing, let's fetch backend directly to capture the generated user ID!
-      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
-      const formData = new FormData();
-      formData.append("email", data.email);
-      const res = await fetch(`${BACKEND_URL}/api/auth/forgot-password`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-      const resData = await res.json();
-      
-      // If user ID was not found, we still show OTP step but it will fail.
-      // For testing, let's look up if backend returned user ID (we can modify backend forgot-password to optionally return user ID for local OTP routing)
-      // Wait, let's look at backend response. In backend/main.py forgot_password:
-      // return response_msg -> response_msg = {"detail": "If an account exists, we've sent a verification code."}
-      // Let's modify backend forgot_password endpoint to also return user ID under "userId" if it exists, so the frontend can route it!
-      // Wait, does it return it? Let's check: it didn't, let's update it to return {"detail": ..., "userId": user.id} so the frontend knows who is recovering!
-      // Yes, this is extremely practical.
-      const responseUserId = resData.userId || "guest";
-      setUserId(responseUserId);
-      
-      setStep(2);
+      if (res.error) {
+        setErrorMessage(res.error.message || "Handshake error occurred.");
+        toast("Recovery trigger failed", "error");
+      } else {
+        toast("Handshake signal sent successfully", "success");
+        setUserId(res.userId || "guest");
+        setStep(2);
+      }
     } catch (err: any) {
       setLoading(false);
       setErrorMessage("handshake error occurred.");

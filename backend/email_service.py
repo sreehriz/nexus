@@ -273,3 +273,182 @@ def send_password_changed_email(to_email: str, name: str) -> bool:
         title="Nexus Credentials Updated",
         html_body=body
     )
+
+from backend.config import APP_URL
+
+def send_meeting_invitation_email(to_email: str, invitee_name: str, host_name: str, room_code: str, meeting_time: str) -> bool:
+    if _dispatch_n8n({
+        "type": "meeting_invitation",
+        "to": to_email,
+        "inviteeName": invitee_name,
+        "hostName": host_name,
+        "roomCode": room_code,
+        "meetingTime": meeting_time
+    }):
+        return True
+    body = f"""
+    <h1>Meeting Invitation</h1>
+    <p>Hello {invitee_name},</p>
+    <p><strong>{host_name}</strong> has invited you to join a secure Nexus meeting room.</p>
+    <div class="otp-card">
+      <h3 class="otp-code" style="font-size:24px; letter-spacing: 2px;">{room_code}</h3>
+    </div>
+    <p>Scheduled Time: <strong>{meeting_time}</strong></p>
+    <p>To join the conference matrix, navigate to your dashboard or use the link below:</p>
+    <p><a href="{APP_URL}/meeting/{room_code}" class="btn" style="color:#09090b;">Join Meeting</a></p>
+    """
+    return send_email(
+        to_email=to_email,
+        subject=f"Nexus Meeting Invitation from {host_name}",
+        title="Meeting Invitation",
+        html_body=body
+    )
+
+def send_meeting_reminder_email(to_email: str, name: str, room_code: str, meeting_time: str) -> bool:
+    if _dispatch_n8n({
+        "type": "meeting_reminder",
+        "to": to_email,
+        "name": name,
+        "roomCode": room_code,
+        "meetingTime": meeting_time
+    }):
+        return True
+    body = f"""
+    <h1>Meeting Reminder</h1>
+    <p>Hello {name},</p>
+    <p>This is a reminder that your scheduled Nexus conference session is starting soon.</p>
+    <div class="otp-card">
+      <h3 class="otp-code" style="font-size:24px; letter-spacing: 2px;">{room_code}</h3>
+    </div>
+    <p>Scheduled Time: <strong>{meeting_time}</strong></p>
+    <p><a href="{APP_URL}/meeting/{room_code}" class="btn" style="color:#09090b;">Join Session</a></p>
+    """
+    return send_email(
+        to_email=to_email,
+        subject="Reminder: Nexus Meeting Starting Soon",
+        title="Meeting Reminder",
+        html_body=body
+    )
+
+def send_recording_ready_email(to_email: str, name: str, room_code: str, recording_url: str) -> bool:
+    if _dispatch_n8n({
+        "type": "recording_ready",
+        "to": to_email,
+        "name": name,
+        "roomCode": room_code,
+        "recordingUrl": f"{APP_URL}{recording_url}" if recording_url.startswith("/") else recording_url
+    }):
+        return True
+    full_url = f"{APP_URL}{recording_url}" if recording_url.startswith("/") else recording_url
+    body = f"""
+    <h1>Recording Ready</h1>
+    <p>Hello {name},</p>
+    <p>The audio/video stream capture for meeting room <strong>{room_code}</strong> has been successfully processed and is ready for playback.</p>
+    <p><a href="{full_url}" class="btn" style="color:#09090b;">Access Recording</a></p>
+    <p>Alternatively, copy this link to your browser: <br /><code>{full_url}</code></p>
+    """
+    return send_email(
+        to_email=to_email,
+        subject=f"Recording Ready: Room {room_code}",
+        title="Recording Processed",
+        html_body=body
+    )
+
+def send_ai_summary_email(to_email: str, name: str, room_code: str, summary: str, action_items: list) -> bool:
+    if _dispatch_n8n({
+        "type": "ai_summary",
+        "to": to_email,
+        "name": name,
+        "roomCode": room_code,
+        "summary": summary,
+        "actionItems": action_items
+    }):
+        return True
+    
+    items_html = ""
+    if action_items:
+        items_html = "<h3>Action Items:</h3><ul>"
+        for item in action_items:
+            text = item.get("text", "")
+            assignee = item.get("assignee", "Unassigned")
+            items_html += f"<li><strong>{assignee}</strong>: {text}</li>"
+        items_html += "</ul>"
+        
+    body = f"""
+    <h1>AI Meeting Summary</h1>
+    <p>Hello {name},</p>
+    <p>Your AI Copilot has compiled a structured summary and action roadmap for meeting <strong>{room_code}</strong>:</p>
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid #27272a; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+      <p style="margin-top:0; color:#fafafa;"><strong>Summary:</strong></p>
+      <p style="color:#a1a1aa; font-size:13px; line-height:1.6;">{summary}</p>
+      {items_html}
+    </div>
+    <p><a href="{APP_URL}/history" class="btn" style="color:#09090b;">View History Panel</a></p>
+    """
+    return send_email(
+        to_email=to_email,
+        subject=f"AI Meeting Summary: Room {room_code}",
+        title="AI Copilot Report",
+        html_body=body
+    )
+
+def send_contact_form_email(name: str, email: str, subject: str, message: str) -> bool:
+    if _dispatch_n8n({
+        "type": "contact_form",
+        "to": SMTP_FROM,
+        "name": name,
+        "email": email,
+        "subject": subject,
+        "message": message
+    }):
+        return True
+    body = f"""
+    <h1>New Contact Form Submission</h1>
+    <p><strong>Name:</strong> {name}</p>
+    <p><strong>Email:</strong> {email}</p>
+    <p><strong>Subject:</strong> {subject}</p>
+    <p><strong>Message:</strong></p>
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid #27272a; border-radius: 8px; padding: 20px;">
+      <p style="margin:0; color:#a1a1aa; font-size:13px; line-height:1.6; white-space: pre-wrap;">{message}</p>
+    </div>
+    """
+    return send_email(
+        to_email=SMTP_FROM,
+        subject=f"Contact Form: {subject}",
+        title="Contact Form Submission",
+        html_body=body
+    )
+
+def send_security_alert_email(to_email: str, name: str, alert_type: str, alert_details: str) -> bool:
+    if _dispatch_n8n({
+        "type": "security_alert",
+        "to": to_email,
+        "name": name,
+        "alertType": alert_type,
+        "alertDetails": alert_details
+    }):
+        return True
+    
+    subject = "Security Notice: Nexus Node Alert"
+    if alert_type == "new_login":
+        subject = "Security Notice: New Login Detected"
+    elif alert_type == "password_changed":
+        subject = "Security Notice: Password Override Completed"
+        
+    body = f"""
+    <h1>Security Alert</h1>
+    <p>Hello {name},</p>
+    <p>This is an automated transmission regarding security developments on your Nexus node:</p>
+    <div class="otp-card" style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); text-align: left; padding: 18px;">
+      <p style="color:#ef4444; font-weight:bold; margin-top:0;">Alert: {alert_type.replace('_', ' ').upper()}</p>
+      <p style="color:#a1a1aa; font-size:13px; margin-bottom:0;">{alert_details}</p>
+    </div>
+    <p>If you did not execute this handshake, link immediately with support and adjust your credentials settings.</p>
+    """
+    return send_email(
+        to_email=to_email,
+        subject=subject,
+        title="Security Alert",
+        html_body=body
+    )
+
