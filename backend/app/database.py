@@ -189,7 +189,7 @@ def init_db():
             alembic_ini_path = os.path.join(workspace_root, "backend", "alembic.ini")
             if os.path.exists(alembic_ini_path):
                 cfg = Config(alembic_ini_path)
-                cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
+                cfg.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
                 command.upgrade(cfg, "head")
                 print("[DATABASE] Alembic migrations run successfully.")
             else:
