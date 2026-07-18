@@ -19,7 +19,8 @@ from backend.config import (
     GEMINI_API_KEY, APP_URL, UPLOAD_DIR, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
     GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, APPLE_CLIENT_ID, APPLE_TEAM_ID,
     APPLE_KEY_ID, APPLE_PRIVATE_KEY, COOKIE_SECURE, N8N_WEBHOOK_URL,
-    CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, SENTRY_DSN
+    CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, SENTRY_DSN,
+    SUPABASE_URL, SUPABASE_KEY, SUPABASE_BUCKET
 )
 
 # Initialize Sentry
@@ -143,6 +144,63 @@ def upload_to_cloudinary(file: UploadFile, folder: str = "nexus") -> Optional[st
         print("[CLOUDINARY] Upload failed:", e)
         return None
 
+
+def upload_to_supabase(file: UploadFile, folder: str = "nexus") -> Optional[str]:
+    """
+    Upload a file to Supabase Storage bucket.
+    Prioritizes Supabase Storage using HTTP REST API.
+    """
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
+    try:
+        # Generate unique path inside bucket
+        file_id = str(uuid.uuid4())
+        ext = os.path.splitext(file.filename)[1]
+        filename = f"{folder}/{file_id}{ext}"
+        
+        # Supabase storage REST API endpoint
+        clean_url = SUPABASE_URL.rstrip("/")
+        upload_url = f"{clean_url}/storage/v1/object/{SUPABASE_BUCKET}/{filename}"
+        
+        # Read file bytes
+        file.file.seek(0)
+        file_bytes = file.file.read()
+        file.file.seek(0) # reset pointer for subsequent fallback attempts
+        
+        headers = {
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": file.content_type or "application/octet-stream"
+        }
+        
+        # Perform request
+        import httpx
+        res = httpx.post(upload_url, content=file_bytes, headers=headers, timeout=30)
+        if res.status_code == 200:
+            # Successful upload. Return the public URL.
+            public_url = f"{clean_url}/storage/v1/object/public/{SUPABASE_BUCKET}/{filename}"
+            print(f"[SUPABASE STORAGE] Successfully uploaded to: {filename}")
+            return public_url
+        else:
+            print(f"[SUPABASE STORAGE] Upload failed: {res.status_code} - {res.text}")
+            return None
+    except Exception as e:
+        print(f"[SUPABASE STORAGE] Error during file upload: {e}")
+        return None
+
+
+def get_backend_base_url(request: Request) -> str:
+    """Helper to dynamically determine the external backend base URL, honoring standard proxy headers."""
+    configured_url = os.getenv("BACKEND_URL") or os.getenv("VITE_API_URL")
+    if configured_url:
+        return configured_url.rstrip("/")
+        
+    proto = request.headers.get("x-forwarded-proto", "http")
+    host = request.headers.get("x-forwarded-host")
+    if not host:
+        host = request.headers.get("host")
+    if not host:
+        return str(request.base_url).rstrip("/")
+    return f"{proto}://{host}"
 
 # --- Simple In-Memory Rate Limiter (no external dep required) ---
 # Structure: { ip: [(timestamp, ...), ...] }
@@ -593,7 +651,7 @@ from fastapi.responses import RedirectResponse, HTMLResponse
 def google_auth(request: Request):
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=400, detail="Google client credentials are not configured in environment.")
-    base_url = str(request.base_url).rstrip("/")
+    base_url = get_backend_base_url(request)
     redirect_uri = f"{base_url}/api/auth/google/callback"
     scope = "openid email profile"
     url = (
@@ -610,7 +668,7 @@ def google_auth(request: Request):
 async def google_callback(code: str, request: Request, response: Response, db: Session = Depends(get_db)):
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="Google client credentials are not configured.")
-    base_url = str(request.base_url).rstrip("/")
+    base_url = get_backend_base_url(request)
     redirect_uri = f"{base_url}/api/auth/google/callback"
     
     token_url = "https://oauth2.googleapis.com/token"
@@ -692,7 +750,7 @@ async def google_callback(code: str, request: Request, response: Response, db: S
 def github_auth(request: Request):
     if not GITHUB_CLIENT_ID:
         raise HTTPException(status_code=400, detail="GitHub client credentials are not configured in environment.")
-    base_url = str(request.base_url).rstrip("/")
+    base_url = get_backend_base_url(request)
     redirect_uri = f"{base_url}/api/auth/github/callback"
     url = (
         f"https://github.com/login/oauth/authorize?"
@@ -707,7 +765,7 @@ def github_auth(request: Request):
 async def github_callback(code: str, request: Request, response: Response, db: Session = Depends(get_db)):
     if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="GitHub client credentials are not configured.")
-    base_url = str(request.base_url).rstrip("/")
+    base_url = get_backend_base_url(request)
     redirect_uri = f"{base_url}/api/auth/github/callback"
     
     token_url = "https://github.com/login/oauth/access_token"
@@ -801,7 +859,7 @@ def apple_auth(request: Request):
     is_apple_configured = all([APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY])
     
     if is_apple_configured:
-        base_url = str(request.base_url).rstrip("/")
+        base_url = get_backend_base_url(request)
         redirect_uri = f"{base_url}/api/auth/apple/callback"
         scope = "name email"
         url = (
@@ -1018,7 +1076,7 @@ async def apple_callback(request: Request, db: Session = Depends(get_db)):
             "client_secret": client_secret,
             "code": code,
             "grant_type": "authorization_code",
-            "redirect_uri": f"{str(request.base_url).rstrip('/')}/api/auth/apple/callback"
+            "redirect_uri": f"{get_backend_base_url(request)}/api/auth/apple/callback"
         }
         
         async with httpx.AsyncClient() as client:
@@ -1301,17 +1359,22 @@ async def upload_file(
     except Exception:
         size_str = "0.0 KB"
 
-    # Try uploading to Cloudinary
-    cloudinary_url = upload_to_cloudinary(file, folder=f"nexus/{roomCode}")
+    # Try uploading to Supabase Storage
+    supabase_url = upload_to_supabase(file, folder=f"room_{roomCode}")
     
-    if cloudinary_url:
-        file_url = cloudinary_url
+    if supabase_url:
+        file_url = supabase_url
     else:
-        # Fallback to local upload
-        file.file.seek(0)
-        with open(dest_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        file_url = f"/static/uploads/{filename}"
+        # Try uploading to Cloudinary
+        cloudinary_url = upload_to_cloudinary(file, folder=f"nexus/{roomCode}")
+        if cloudinary_url:
+            file_url = cloudinary_url
+        else:
+            # Fallback to local upload
+            file.file.seek(0)
+            with open(dest_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            file_url = f"/static/uploads/{filename}"
     
     db_file = File(
         meeting_id=roomCode,
@@ -1346,17 +1409,22 @@ async def upload_recording(
     filename = f"rec_{roomCode}_{rec_id}.webm"
     dest_path = os.path.join(UPLOAD_DIR, filename)
     
-    # Try uploading to Cloudinary
-    cloudinary_url = upload_to_cloudinary(file, folder=f"nexus/{roomCode}/recordings")
+    # Try uploading to Supabase Storage
+    supabase_url = upload_to_supabase(file, folder=f"room_{roomCode}/recordings")
     
-    if cloudinary_url:
-        file_url = cloudinary_url
+    if supabase_url:
+        file_url = supabase_url
     else:
-        # Fallback to local upload
-        file.file.seek(0)
-        with open(dest_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        file_url = f"/static/uploads/{filename}"
+        # Try uploading to Cloudinary
+        cloudinary_url = upload_to_cloudinary(file, folder=f"nexus/{roomCode}/recordings")
+        if cloudinary_url:
+            file_url = cloudinary_url
+        else:
+            # Fallback to local upload
+            file.file.seek(0)
+            with open(dest_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            file_url = f"/static/uploads/{filename}"
     
     # Store recording log
     db_rec = Recording(
@@ -1632,19 +1700,24 @@ async def upload_user_avatar(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    cloudinary_url = upload_to_cloudinary(file, folder="nexus/avatars")
+    # Try uploading to Supabase Storage
+    supabase_url = upload_to_supabase(file, folder="avatars")
     
-    if cloudinary_url:
-        file_url = cloudinary_url
+    if supabase_url:
+        file_url = supabase_url
     else:
-        # Fallback to local
-        file_id = str(uuid.uuid4())
-        ext = os.path.splitext(file.filename)[1]
-        filename = f"avatar_{user_id}_{file_id}{ext}"
-        dest_path = os.path.join(UPLOAD_DIR, filename)
-        with open(dest_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        file_url = f"/static/uploads/{filename}"
+        cloudinary_url = upload_to_cloudinary(file, folder="nexus/avatars")
+        if cloudinary_url:
+            file_url = cloudinary_url
+        else:
+            # Fallback to local
+            file_id = str(uuid.uuid4())
+            ext = os.path.splitext(file.filename)[1]
+            filename = f"avatar_{user_id}_{file_id}{ext}"
+            dest_path = os.path.join(UPLOAD_DIR, filename)
+            with open(dest_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            file_url = f"/static/uploads/{filename}"
         
     user.avatar = file_url
     db.commit()

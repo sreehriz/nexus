@@ -62,6 +62,11 @@ CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "")
 CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "")
 CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "")
 
+# ── Supabase Storage ──────────────────────────────────────────────────────────
+SUPABASE_URL = os.getenv("SUPABASE_URL", os.getenv("VITE_SUPABASE_URL", ""))
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", os.getenv("VITE_SUPABASE_ANON_KEY", ""))
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "nexus")
+
 # ── Sentry DSN ────────────────────────────────────────────────────────────────
 SENTRY_DSN = os.getenv("SENTRY_DSN", "")
 
