@@ -149,10 +149,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
 
       if (res.ok) {
-        if (data.status === "verification_required") {
-          return { error: null, verificationRequired: true, userId: data.userId, email: data.email };
-        }
-        return { error: { message: "Unexpected server response." } };
+        localStorage.setItem("nexus_jwt", data.token);
+        const loggedUser: User = {
+          id: data.user.id,
+          email,
+          user_metadata: {
+            fullName: data.user.fullName,
+            avatarColor: data.user.avatarColor || "from-indigo-500 to-cyan-400",
+            avatar: data.user.avatar || null
+          },
+          app_metadata: {},
+          aud: "authenticated",
+          created_at: new Date().toISOString(),
+        };
+        localStorage.setItem("nexus_mock_session", JSON.stringify(loggedUser));
+        setUser(loggedUser);
+        return { error: null };
       } else {
         return { error: { message: data.detail || "Registration failed" } };
       }

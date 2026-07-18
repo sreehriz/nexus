@@ -242,6 +242,7 @@ def is_strong_password(p: str) -> bool:
 @app.post("/api/register")
 def register(
     request: Request,
+    response: Response,
     email: str = Form(...),
     username: str = Form(...),
     password: str = Form(...),
@@ -266,40 +267,58 @@ def register(
     if existing_user:
         raise HTTPException(status_code=400, detail="Username is already taken")
         
-    # Create User (unverified)
+    # Create User (directly verified)
     user = User(
         email=email,
         username=username.lower(),
         password_hash=get_password_hash(password),
         full_name=fullName,
         avatar_color=avatarColor or "from-indigo-500 to-cyan-400",
-        email_verified=False
+        email_verified=True
     )
     db.add(user)
     db.commit()
     db.refresh(user)
     
-    # Generate OTP
-    otp = generate_otp()
-    hashed = hash_otp(otp)
-    expiry = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
-    
-    otp_record = OTPCode(
-        user_id=user.id,
-        otp_hash=hashed,
-        purpose="verify_email",
-        expires_at=expiry
-    )
-    db.add(otp_record)
+    # Successful Registration - Login directly
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    user.last_login = datetime.datetime.utcnow()
     db.commit()
     
-    # Send Welcome Email
-    send_welcome_email(user.email, user.full_name, otp)
+    # Tokens
+    access_token = create_access_token({"sub": user.id, "email": user.email, "name": user.full_name, "avatarColor": user.avatar_color, "avatar": getattr(user, "avatar", None)})
+    refresh_token = create_refresh_token({"sub": user.id})
+    
+    # Store Refresh Token
+    token_hash = hash_otp(refresh_token)
+    rt_record = RefreshToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    )
+    db.add(rt_record)
+    db.commit()
+    
+    # Set Secure HttpOnly cookie
+    response.set_cookie(
+        key="nexus_refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        max_age=7*24*60*60
+    )
     
     return {
-        "status": "verification_required",
-        "userId": user.id,
-        "email": user.email
+        "token": access_token,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "fullName": user.full_name,
+            "avatarColor": user.avatar_color,
+            "avatar": getattr(user, "avatar", None)
+        }
     }
 
 @app.post("/api/login")
@@ -342,34 +361,8 @@ def login(
         # Always output generic message to prevent enumeration
         raise HTTPException(status_code=401, detail="Invalid email or password.")
         
-    # Check if Email is Verified
-    if not user.email_verified:
-        # Generate new verification code
-        otp = generate_otp()
-        hashed = hash_otp(otp)
-        expiry = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
-        
-        # Deactivate old verify codes
-        db.query(OTPCode).filter(OTPCode.user_id == user.id, OTPCode.purpose == "verify_email").update({"used": True})
-        
-        otp_record = OTPCode(
-            user_id=user.id,
-            otp_hash=hashed,
-            purpose="verify_email",
-            expires_at=expiry
-        )
-        db.add(otp_record)
-        db.commit()
-        
-        send_welcome_email(user.email, user.full_name, otp)
-        
-        return {
-            "status": "verification_required",
-            "userId": user.id,
-            "email": user.email
-        }
-        
     # Successful Login
+    user.email_verified = True
     user.failed_login_attempts = 0
     user.locked_until = None
     user.last_login = datetime.datetime.utcnow()

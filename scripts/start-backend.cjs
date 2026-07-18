@@ -76,7 +76,7 @@ function startBackend(pythonCmd) {
     ["-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", String(BACKEND_PORT), "--reload", "--reload-dir", "backend"],
     {
       cwd: ROOT,
-      env: { ...process.env, PYTHONUNBUFFERED: "1" },
+      env: { ...process.env, PYTHONUNBUFFERED: "1", PYTHONUTF8: "1" },
       stdio: "inherit",
     }
   );

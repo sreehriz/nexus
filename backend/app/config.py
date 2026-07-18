@@ -73,9 +73,9 @@ SENTRY_DSN = os.getenv("SENTRY_DSN", "")
 # ── Startup validation ────────────────────────────────────────────────────────
 _warnings = []
 if JWT_SECRET == "nexus-super-secret-key-change-in-production-2026" and IS_PRODUCTION:
-    _warnings.append("⚠️  JWT_SECRET is using the default value. Set a strong secret in production.")
+    _warnings.append("[WARNING] JWT_SECRET is using the default value. Set a strong secret in production.")
 if IS_PRODUCTION and not COOKIE_SECURE:
-    _warnings.append("⚠️  COOKIE_SECURE is False but IS_PRODUCTION=true. Cookies won't work over HTTPS.")
+    _warnings.append("[WARNING] COOKIE_SECURE is False but IS_PRODUCTION=true. Cookies won't work over HTTPS.")
 
 if _warnings:
     for w in _warnings:
