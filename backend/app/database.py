@@ -4,13 +4,13 @@ from sqlalchemy.orm import sessionmaker, relationship
 import datetime
 import uuid
 import os
-from backend.config import DATABASE_URL as CONFIG_DATABASE_URL
+from app.config import DATABASE_URL as CONFIG_DATABASE_URL
 
 DATABASE_URL = CONFIG_DATABASE_URL
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 if not DATABASE_URL:
     DATABASE_URL = f"sqlite:///{os.path.join(workspace_root, 'nexus.db')}"
@@ -186,7 +186,7 @@ def init_db():
         try:
             from alembic.config import Config
             from alembic import command
-            alembic_ini_path = os.path.join(workspace_root, "alembic.ini")
+            alembic_ini_path = os.path.join(workspace_root, "backend", "alembic.ini")
             if os.path.exists(alembic_ini_path):
                 cfg = Config(alembic_ini_path)
                 cfg.set_main_option("sqlalchemy.url", DATABASE_URL)

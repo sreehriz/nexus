@@ -1,8 +1,8 @@
 import os
 from dotenv import load_dotenv
 
-# Load `.env.local` from the workspace root (parent folder of backend)
-workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# Load `.env.local` from the workspace root (parent folder of backend/app)
+workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 env_path = os.path.join(workspace_root, ".env.local")
 load_dotenv(env_path)
 

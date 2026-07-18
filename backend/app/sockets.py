@@ -1,8 +1,8 @@
 import socketio
 import datetime
 from sqlalchemy.orm import Session
-from backend.database import SessionLocal, Participant, Meeting, Message, Attendance, File, User
-from backend.config import GEMINI_API_KEY
+from app.database import SessionLocal, Participant, Meeting, Message, Attendance, File, User
+from app.config import GEMINI_API_KEY
 import os
 
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')

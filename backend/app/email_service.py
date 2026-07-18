@@ -6,7 +6,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
 
-from backend.config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, N8N_WEBHOOK_URL, RESEND_API_KEY
+from app.config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, N8N_WEBHOOK_URL, RESEND_API_KEY
 
 
 def _dispatch_n8n(payload: dict) -> bool:
@@ -318,7 +318,7 @@ def send_password_changed_email(to_email: str, name: str) -> bool:
         html_body=body
     )
 
-from backend.config import APP_URL
+from app.config import APP_URL
 
 def send_meeting_invitation_email(to_email: str, invitee_name: str, host_name: str, room_code: str, meeting_time: str) -> bool:
     if _dispatch_n8n({
@@ -495,4 +495,3 @@ def send_security_alert_email(to_email: str, name: str, alert_type: str, alert_d
         title="Security Alert",
         html_body=body
     )
-
