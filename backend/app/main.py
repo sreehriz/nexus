@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import socketio
 from google import genai
+from google.genai.errors import APIError
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -1844,7 +1845,6 @@ async def memory_search(
         return {"results": results, "summary": summary}
 
     # 4. Call Gemini for semantic ranking
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={clean_gemini_key}"
     prompt = (
         f"You are a meeting intelligence assistant. Given the user query and their meeting transcript below, "
         f"identify the most relevant messages and return a JSON response.\n\n"
@@ -1856,29 +1856,25 @@ async def memory_search(
     )
 
     try:
-        async with httpx.AsyncClient() as client:
-            res = await client.post(
-                gemini_url,
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"responseMimeType": "application/json"},
-                },
-                timeout=20.0,
-            )
-            if res.status_code == 200:
-                data = res.json()
-                raw = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-                parsed = json.loads(raw)
-                return {
-                    "results": parsed.get("results", []),
-                    "summary": parsed.get("summary", ""),
-                }
-            else:
-                raise HTTPException(status_code=500, detail="Gemini API error")
+        gemini_client = genai.Client(api_key=clean_gemini_key) if clean_gemini_key else genai.Client()
+        response = gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config={"response_mime_type": "application/json"}
+        )
+        raw = response.text.strip()
+        parsed = json.loads(raw)
+        return {
+            "results": parsed.get("results", []),
+            "summary": parsed.get("summary", ""),
+        }
+    except APIError as e:
+        print(f"Detailed Gemini API Error: {getattr(e, 'message', str(e))} (Code: {getattr(e, 'code', 'N/A')})")
+        raise HTTPException(status_code=500, detail=f"Gemini Error: {getattr(e, 'message', str(e))}")
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Failed to parse Gemini response")
     except Exception as e:
-        print("Memory search error:", e)
+        print(f"General Search Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
