@@ -30,7 +30,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 APP_URL = os.getenv("APP_URL", "")
 
 # ── AI ────────────────────────────────────────────────────────────────────────
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip().replace("\n", "").replace("\r", "")
 
 # ── OAuth ─────────────────────────────────────────────────────────────────────
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")

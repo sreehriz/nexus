@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import socketio
+from google import genai
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -76,6 +77,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global exception handler to capture unhandled database/system errors and return standard JSON
+# responses, ensuring CORSMiddleware correctly appends CORS headers to 500 error responses.
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"[UNHANDLED EXCEPTION] {exc}")
+    import traceback
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal Server Error. Connection to database or service failed.",
+            "error": str(exc)
+        }
+    )
+
 # ── Health, Version & Status Check Endpoints ─────────────────────────────────
 @app.get("/health")
 @app.head("/health")
@@ -109,6 +127,28 @@ def status_root(db: Session = Depends(get_db)):
         "service": "nexus-backend",
         "timestamp": datetime.datetime.utcnow().isoformat()
     }
+
+
+# Initialize Gemini client
+client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else genai.Client()
+
+@app.get("/api/test-gemini")
+async def test_gemini():
+    try:
+        # Send a tiny prompt to verify authentication
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents='Say "Gemini API is connected!"',
+        )
+        return {
+            "status": "connected",
+            "response": response.text.strip()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
 
 # Static files for downloads
@@ -1445,11 +1485,11 @@ async def translate_text(
     text: str = Form(...),
     target_lang: str = Form(...)  # e.g., "ja", "es", "de", "hi", "en"
 ):
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "MY_GEMINI_API_KEY":
-        # Fallback local dictionary if API Key is not set
+    clean_gemini_key = GEMINI_API_KEY.strip().replace("\n", "").replace("\r", "")
+    if not clean_gemini_key or clean_gemini_key in ("MY_GEMINI_API_KEY", "your-gemini-api-key-here"):
         return {"translatedText": f"[Translated to {target_lang}]: {text}"}
-        
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={clean_gemini_key}"
     prompt = f"Translate the following text into language code '{target_lang}' (ja=Japanese, es=Spanish, de=German, hi=Hindi, en=English). Return ONLY the translated sentence, without comments or surrounding quotes.\n\nText: {text}"
     
     payload = {
@@ -1490,8 +1530,8 @@ async def generate_summary(
             "decisions": []
         }
         
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "MY_GEMINI_API_KEY":
-        # Return fallback mockup values
+    clean_gemini_key = GEMINI_API_KEY.strip().replace("\n", "").replace("\r", "")
+    if not clean_gemini_key or clean_gemini_key in ("MY_GEMINI_API_KEY", "your-gemini-api-key-here"):
         return {
             "summary": f"This meeting (Room: {roomCode}) covered structural layout items. (Gemini key not configured)",
             "actionItems": [
@@ -1502,8 +1542,8 @@ async def generate_summary(
                 {"text": "Selected standard WebRTC peer-to-peer mesh configuration."}
             ]
         }
-        
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={clean_gemini_key}"
     prompt = (
         "Analyze the following meeting transcript. Provide a summary of the meeting, "
         "a JSON list of key decisions, and a JSON list of action items with their suggested assignee.\n"
@@ -1743,8 +1783,8 @@ async def memory_search(
     Semantic search over the authenticated user's meeting messages using Gemini.
     Returns ranked results with an AI-generated summary.
     """
-    query = body.query.strip()
-    if not query:
+    clean_query = body.query.strip().replace("\n", " ").replace("\r", " ")
+    if not clean_query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
     # 1. Gather all messages from meetings the user attended / hosted
@@ -1776,9 +1816,12 @@ async def memory_search(
     ]
     transcript_text = "\n".join(transcript_lines)
 
-    # 3. If no Gemini key, do simple keyword fallback
-    if not GEMINI_API_KEY or GEMINI_API_KEY in ("MY_GEMINI_API_KEY", "your-gemini-api-key-here"):
-        keyword = query.lower()
+    # 3. Clean API key and query
+    clean_gemini_key = (GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")).strip().replace("\n", "").replace("\r", "")
+
+    # If no Gemini key, do simple keyword fallback
+    if not clean_gemini_key or clean_gemini_key in ("MY_GEMINI_API_KEY", "your-gemini-api-key-here"):
+        keyword = clean_query.lower()
         matched = [
             m for m in messages
             if keyword in m.text.lower() or keyword in m.sender_name.lower()
@@ -1794,18 +1837,18 @@ async def memory_search(
             for m in matched
         ]
         summary = (
-            f"Found {len(results)} message(s) containing '{query}'."
+            f"Found {len(results)} message(s) containing '{clean_query}'."
             if results
-            else f"No messages matched '{query}'. (Gemini API key not configured for semantic search)"
+            else f"No messages matched '{clean_query}'. (Gemini API key not configured for semantic search)"
         )
         return {"results": results, "summary": summary}
 
     # 4. Call Gemini for semantic ranking
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={clean_gemini_key}"
     prompt = (
         f"You are a meeting intelligence assistant. Given the user query and their meeting transcript below, "
         f"identify the most relevant messages and return a JSON response.\n\n"
-        f"Query: \"{query}\"\n\n"
+        f"Query: \"{clean_query}\"\n\n"
         f"Transcript (format: [meeting_id|timestamp] speaker: message):\n{transcript_text[:8000]}\n\n"
         f"Return JSON matching this schema exactly:\n"
         f'{{"summary": "1-2 sentence answer to the query", "results": [{{"meeting_id": "str", "timestamp": "ISO string", "content": "exact message text", "speaker": "name", "relevance": 0.0-1.0}}]}}\n'
