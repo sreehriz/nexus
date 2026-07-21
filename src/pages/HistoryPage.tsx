@@ -7,7 +7,7 @@ import { useToast } from "../context/ToastContext";
 import { SkeletonMeeting } from "../components/ui/Skeleton";
 import { NoMeetingsEmpty } from "../components/ui/EmptyState";
 import CinematicBackground from "../components/CinematicBackground";
-import { BACKEND_URL } from "@/src/config";
+import { apiFetch } from "@/src/config";
 
 
 interface MeetingRecord {
@@ -55,7 +55,7 @@ export default function HistoryPage() {
     const fetch_history = async () => {
       try {
         const token = localStorage.getItem("nexus_jwt");
-        const res = await fetch(`${BACKEND_URL}/api/meetings/history?limit=50`, {
+        const res = await apiFetch("/meetings/history?limit=50", {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (res.ok) {

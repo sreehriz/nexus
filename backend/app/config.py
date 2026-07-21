@@ -16,7 +16,7 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))  
 IS_PRODUCTION = os.getenv("IS_PRODUCTION", "false").lower() in ("true", "1", "yes")
 IS_PRODUCTION = IS_PRODUCTION or os.getenv("NODE_ENV", "development") == "production"
 
-# Cookie security: must be False on http://localhost, True on https:// production
+# Cookie security: False in development, True in production
 COOKIE_SECURE = IS_PRODUCTION
 
 # ── Database ──────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ UPLOAD_DIR = os.path.join(workspace_root, "public", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ── App URL ───────────────────────────────────────────────────────────────────
-APP_URL = os.getenv("APP_URL", "http://localhost:3000")
+APP_URL = os.getenv("APP_URL", "")
 
 # ── AI ────────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -51,7 +51,7 @@ SMTP_FROM = os.getenv("SMTP_FROM", "no-reply@nexus.app")
 
 # ── n8n Webhook ───────────────────────────────────────────────────────────────
 # Set this to enable n8n email automation (preferred over SMTP in development)
-# Example: http://localhost:5678/webhook/nexus-email
+# Example: https://n8n.yourdomain.com/webhook/nexus-email
 N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "")
 
 # ── Resend ────────────────────────────────────────────────────────────────────

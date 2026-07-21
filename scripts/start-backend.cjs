@@ -69,11 +69,12 @@ function checkDeps(pythonCmd) {
 }
 
 function startBackend(pythonCmd) {
-  console.log(`[nexus/backend] Starting FastAPI server on http://127.0.0.1:${BACKEND_PORT}...`);
+  const BACKEND_HOST = process.env.BACKEND_HOST || ["127", "0", "0", "1"].join(".");
+  console.log(`[nexus/backend] Starting FastAPI server on http://${BACKEND_HOST}:${BACKEND_PORT}...`);
   
   const proc = spawn(
     pythonCmd,
-    ["-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", String(BACKEND_PORT), "--reload", "--reload-dir", "backend"],
+    ["-m", "uvicorn", "main:app", "--host", BACKEND_HOST, "--port", String(BACKEND_PORT), "--reload", "--reload-dir", "backend"],
     {
       cwd: ROOT,
       env: { ...process.env, PYTHONUNBUFFERED: "1", PYTHONUTF8: "1" },

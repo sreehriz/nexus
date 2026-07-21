@@ -325,7 +325,7 @@ Start the Frontend Web Application (Port 5173):
 npm run dev
 ```
 
-Visit the application at `http://localhost:5173`.
+Visit the application at the client URL (e.g., your local workspace or your production domain).
 
 ---
 
@@ -339,7 +339,7 @@ A `.env` file should be placed in the project root path. Here is the configurati
 | `JWT_SECRET_KEY` | *Auto-generated on launch if empty* | High-entropy string used to sign secure authentication tokens. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Duration (in minutes) for which access tokens are validated. |
 | `GEMINI_API_KEY` | *Optional* | API key for Google Generative AI to enable **Nexus Memory™** semantic search. |
-| `APP_URL` | `http://localhost:5173` | The public URL of the React client interface. Used to lock CORS headers. |
+| `APP_URL` | `https://your-nexus-app.vercel.app` | The public URL of the React client interface. Used to lock CORS headers. |
 
 ---
 
@@ -541,7 +541,7 @@ Nexus captures user speech feeds and produces real-time transcription texts. If 
 * **Backend Rate Limiting**: Limit authentication endpoints to `5 requests / minute` in-memory to prevent automated brute-force attempts.
 * **CORS Policies**: Explicit origin validation matching client domains:
   ```python
-  allow_origins=[os.getenv("APP_URL", "http://localhost:5173")]
+  allow_origins=[os.getenv("APP_URL", "https://your-nexus-app.vercel.app")]
   ```
 
 ---

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently --kill-others --prefix-colors \"cyan,magenta\" --names \"BACKEND,FRONTEND\" \"node scripts/start-backend.cjs\" \"wait-on http://127.0.0.1:8000/api/health --timeout 30000 && vite --port=3000 --host=0.0.0.0\"",
+    "dev": "concurrently --kill-others --prefix-colors \"cyan,magenta\" --names \"BACKEND,FRONTEND\" \"node scripts/start-backend.cjs\" \"vite --port=3000 --host=0.0.0.0\"",
     "frontend": "vite --port=3000 --host=0.0.0.0",
     "backend": "node scripts/start-backend.cjs",
     "build": "vite build",

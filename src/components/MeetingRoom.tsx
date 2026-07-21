@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { BACKEND_URL } from "@/src/config";
+import { BACKEND_URL, WEBSOCKET_URL, apiFetch } from "@/src/config";
 import {
   Mic,
   MicOff,
@@ -362,7 +362,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
   useEffect(() => {
     if (!localStream) return;
 
-    const socketUrl = BACKEND_URL;
+    const socketUrl = WEBSOCKET_URL;
 
     const socket = io(socketUrl, {
       transports: ["websocket"]
@@ -591,7 +591,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
 
       if (selectedTranslationLangRef.current !== "none" && data.language !== selectedTranslationLangRef.current) {
         try {
-          const res = await fetch(`${BACKEND_URL}/api/translate`, {
+          const res = await apiFetch("/translate", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
@@ -747,7 +747,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
           formData.append("roomCode", roomCode);
           formData.append("file", file);
           try {
-            await fetch(`${BACKEND_URL}/api/recording/upload`, {
+            await apiFetch("/recording/upload", {
               method: "POST",
               body: formData
             });
@@ -944,7 +944,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
     formData.append("senderName", userName);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/upload`, {
+      const res = await apiFetch("/upload", {
         method: "POST",
         body: formData
       });
@@ -1111,7 +1111,7 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
   // --- AI Minutes Generative simulation ---
   const runSmartNoteify = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/ai/summary`, {
+      const res = await apiFetch("/ai/summary", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ roomCode })

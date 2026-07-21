@@ -23,7 +23,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import CinematicBackground from "../components/CinematicBackground";
-import { BACKEND_URL } from "@/src/config";
+import { BACKEND_URL, apiFetch } from "@/src/config";
 
 const AVATAR_COLORS = [
   { label: "Cosmic", value: "from-indigo-500 to-cyan-400" },
@@ -65,7 +65,7 @@ export default function ProfilePage() {
 
     try {
       const token = localStorage.getItem("nexus_jwt");
-      const response = await fetch(`${BACKEND_URL}/api/user/avatar`, {
+      const response = await apiFetch("/user/avatar", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token || ""}`,
@@ -113,7 +113,7 @@ export default function ProfilePage() {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem("nexus_jwt");
-        const res = await fetch(`${BACKEND_URL}/api/user/profile`, {
+        const res = await apiFetch("/user/profile", {
           headers: {
             Authorization: `Bearer ${token}`
           },
@@ -151,10 +151,9 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       const token = localStorage.getItem("nexus_jwt");
-      const res = await fetch(`${BACKEND_URL}/api/user/profile`, {
+      const res = await apiFetch("/user/profile", {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ fullName: displayName, avatarColor: selectedColor }),
@@ -203,7 +202,7 @@ export default function ProfilePage() {
       formData.append("newPassword", newPassword);
       formData.append("confirmPassword", confirmPassword);
 
-      const res = await fetch(`${BACKEND_URL}/api/user/change-password`, {
+      const res = await apiFetch("/user/change-password", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`
@@ -233,7 +232,7 @@ export default function ProfilePage() {
     if (!window.confirm(`Are you sure you want to disconnect ${target.toUpperCase()}?`)) return;
     try {
       const token = localStorage.getItem("nexus_jwt");
-      const res = await fetch(`${BACKEND_URL}/api/auth/disconnect/${target}`, {
+      const res = await apiFetch(`/auth/disconnect/${target}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`
@@ -256,7 +255,7 @@ export default function ProfilePage() {
     if (!window.confirm("CRITICAL WARNING: This will immediately delete your account and invalidate all meetings, documents, and credentials. Are you sure you wish to proceed?")) return;
     try {
       const token = localStorage.getItem("nexus_jwt");
-      const res = await fetch(`${BACKEND_URL}/api/user/delete-account`, {
+      const res = await apiFetch("/user/delete-account", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`

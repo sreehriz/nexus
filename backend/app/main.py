@@ -91,24 +91,16 @@ def status_root(db: Session = Depends(get_db)):
     }
 
 
-# Setup CORS middleware — allow configured APP_URL or local origins
-_allowed_origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+# Setup CORS middleware — allow configured APP_URL
+_allowed_origins = []
 if APP_URL:
     clean_app_url = APP_URL.rstrip("/")
     if clean_app_url not in _allowed_origins:
         _allowed_origins.append(clean_app_url)
 
-_allow_origin_regex = r"https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?"
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
-    allow_origin_regex=_allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

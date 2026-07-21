@@ -16,7 +16,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-import { BACKEND_URL } from "@/src/config";
+import { apiFetch } from "@/src/config";
 
 
 function decodeJWT(token: string): any {
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       formData.append("email", email);
       formData.append("password", password);
       
-      const res = await fetch(`${BACKEND_URL}/api/login`, {
+      const res = await apiFetch("/login", {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       formData.append("fullName", metadata.fullName || email.split("@")[0]);
       formData.append("avatarColor", metadata.avatarColor || "from-indigo-500 to-cyan-400");
       
-      const res = await fetch(`${BACKEND_URL}/api/register`, {
+      const res = await apiFetch("/register", {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -180,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       formData.append("otp", otp);
       formData.append("purpose", purpose);
       
-      const res = await fetch(`${BACKEND_URL}/api/auth/verify-otp`, {
+      const res = await apiFetch("/auth/verify-otp", {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -220,7 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const formData = new FormData();
       formData.append("email", email);
       
-      const res = await fetch(`${BACKEND_URL}/api/auth/forgot-password`, {
+      const res = await apiFetch("/auth/forgot-password", {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -245,7 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       formData.append("newPassword", newPw);
       formData.append("confirmPassword", confirmPw);
       
-      const res = await fetch(`${BACKEND_URL}/api/auth/reset-password`, {
+      const res = await apiFetch("/auth/reset-password", {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -265,7 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch(`${BACKEND_URL}/api/auth/logout`, { method: "POST", credentials: "include" });
+      await apiFetch("/auth/logout", { method: "POST", credentials: "include" });
     } catch (e) {
       console.warn("Logout request failed, clearing local session anyway.", e);
     }
@@ -279,7 +279,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const existingToken = localStorage.getItem("nexus_jwt");
     if (!existingToken) return false;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/refresh`, {
+      const res = await apiFetch("/refresh", {
         method: "POST",
         credentials: "include",
       });

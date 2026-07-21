@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { BACKEND_URL } from "@/src/config";
+import { apiFetch } from "@/src/config";
 import { motion, AnimatePresence } from "motion/react";
 import { Mail, ShieldAlert, Sparkles, CheckCircle2, ArrowRight } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -147,13 +147,13 @@ export default function VerifyOTPPage() {
       formData.append("userId", userId);
       formData.append("email", email);
       
-      let endpoint = `${BACKEND_URL}/api/auth/forgot-password`;
+      let endpoint = "/auth/forgot-password";
       if (purpose === "verify_email") {
         // Simply trigger email login verification code resend
-        endpoint = `${BACKEND_URL}/api/login`;
+        endpoint = "/login";
       }
       
-      const res = await fetch(endpoint, {
+      const res = await apiFetch(endpoint, {
         method: "POST",
         body: formData,
         credentials: "include",

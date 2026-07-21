@@ -16,7 +16,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { NoMemoryResultsEmpty } from "../components/ui/EmptyState";
 import CinematicBackground from "../components/CinematicBackground";
-import { BACKEND_URL } from "@/src/config";
+import { apiFetch } from "@/src/config";
 
 
 interface MemoryResult {
@@ -60,12 +60,9 @@ export default function MemoryPage() {
 
     try {
       const token = localStorage.getItem("nexus_jwt");
-      const res = await fetch(`${BACKEND_URL}/api/memory/search`, {
+      const res = await apiFetch("/memory/search", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: JSON.stringify({ query: query.trim(), userId: user?.id }),
       });
 

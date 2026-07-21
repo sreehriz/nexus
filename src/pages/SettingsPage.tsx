@@ -8,7 +8,7 @@ import {
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import CinematicBackground from "../components/CinematicBackground";
-import { BACKEND_URL } from "@/src/config";
+import { apiFetch } from "@/src/config";
 
 
 type Preference = {
@@ -108,7 +108,7 @@ export default function SettingsPage() {
       if (!token) { setLoading(false); return; }
 
       try {
-        const res = await fetch(`${BACKEND_URL}/api/user/settings`, {
+        const res = await apiFetch("/user/settings", {
           headers: { Authorization: `Bearer ${token}` },
           credentials: "include",
         });
@@ -157,10 +157,9 @@ export default function SettingsPage() {
 
       setSaving(true);
       try {
-        const res = await fetch(`${BACKEND_URL}/api/user/settings`, {
+        const res = await apiFetch("/user/settings", {
           method: "PATCH",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
           credentials: "include",

@@ -29,7 +29,7 @@ import { useToast } from "../context/ToastContext";
 import { SkeletonDashboard, SkeletonMeeting } from "../components/ui/Skeleton";
 import { NoMeetingsEmpty } from "../components/ui/EmptyState";
 import CinematicBackground from "../components/CinematicBackground";
-import { BACKEND_URL } from "@/src/config";
+import { apiFetch } from "@/src/config";
 
 
 interface MeetingRecord {
@@ -106,7 +106,7 @@ export default function DashboardPage() {
 
     try {
       const token = localStorage.getItem("nexus_jwt");
-      const res = await fetch(`${BACKEND_URL}/api/meetings/history`, {
+      const res = await apiFetch("/meetings/history", {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
@@ -139,7 +139,7 @@ export default function DashboardPage() {
     setStarting(true);
     try {
       const token = localStorage.getItem("nexus_jwt");
-      const res = await fetch(`${BACKEND_URL}/api/createMeeting`, {
+      const res = await apiFetch("/createMeeting", {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -149,7 +149,7 @@ export default function DashboardPage() {
         const roomCode = data.roomCode;
 
         // Also join as host
-        const joinRes = await fetch(`${BACKEND_URL}/api/joinMeeting`, {
+        const joinRes = await apiFetch("/joinMeeting", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({
@@ -189,7 +189,7 @@ export default function DashboardPage() {
     setJoinError("");
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/joinMeeting`, {
+      const res = await apiFetch("/joinMeeting", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({

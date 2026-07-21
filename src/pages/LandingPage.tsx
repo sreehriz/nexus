@@ -8,7 +8,7 @@ import HeroLeft from "../components/HeroLeft";
 import TestimonialsCard from "../components/TestimonialsCard";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { BACKEND_URL } from "@/src/config";
+import { apiFetch } from "@/src/config";
 
 
 const containerVariants = {
@@ -140,7 +140,7 @@ export default function LandingPage() {
     const token = localStorage.getItem("nexus_jwt");
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/createMeeting`, {
+      const res = await apiFetch("/createMeeting", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -149,7 +149,7 @@ export default function LandingPage() {
         const data = await res.json();
         const code = data.roomCode;
 
-        const joinRes = await fetch(`${BACKEND_URL}/api/joinMeeting`, {
+        const joinRes = await apiFetch("/joinMeeting", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({
@@ -199,7 +199,7 @@ export default function LandingPage() {
     setIsJoinModalOpen(false);
 
     try {
-      const joinRes = await fetch(`${BACKEND_URL}/api/joinMeeting`, {
+      const joinRes = await apiFetch("/joinMeeting", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -894,9 +894,8 @@ function ContactForm() {
     }
     setSending(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/contact`, {
+      const res = await apiFetch("/contact", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, subject, message })
       });
       if (res.ok) {

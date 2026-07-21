@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router-dom";
-import { BACKEND_URL } from "@/src/config";
+import { apiFetch } from "@/src/config";
 import {
   Search,
   LayoutDashboard,
@@ -120,7 +120,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         onClose();
         const token = localStorage.getItem("nexus_jwt");
         try {
-          const res = await fetch(`${BACKEND_URL}/api/createMeeting`, {
+          const res = await apiFetch("/createMeeting", {
             method: "POST",
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });

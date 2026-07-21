@@ -13,7 +13,7 @@ def _dispatch_n8n(payload: dict) -> bool:
     """
     Send email via n8n Webhook.
     Set N8N_WEBHOOK_URL in .env.local to enable:
-      e.g. http://localhost:5678/webhook/nexus-email
+      e.g. https://n8n.yourdomain.com/webhook/nexus-email
     Payload shape:
       { "type": "welcome|forgot_password|password_changed",
         "to": "email", "name": "Full Name", "otp": "123456" }
@@ -47,7 +47,7 @@ def _dispatch_resend(to_email: str, subject: str, html_content: str) -> bool:
     try:
         resend_from = SMTP_FROM or "onboarding@resend.dev"
         # If using default sandbox key and a custom domain is not set, use onboarding@resend.dev
-        if "re_" in RESEND_API_KEY and ("@nexus.app" in resend_from or "localhost" in resend_from):
+        if "re_" in RESEND_API_KEY and ("@nexus.app" in resend_from or ".local" in resend_from):
             resend_from = "onboarding@resend.dev"
             
         headers = {

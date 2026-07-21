@@ -1,8 +1,8 @@
 import { useEffect, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
-import { BACKEND_URL } from "@/src/config";
+import { WEBSOCKET_URL } from "@/src/config";
 
-const SOCKET_URL = BACKEND_URL;
+const SOCKET_URL = WEBSOCKET_URL;
 
 
 interface UseSocketOptions {
