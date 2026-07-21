@@ -569,7 +569,13 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
     });
 
     socket.on("meeting-ended", () => {
-      alert("This meeting was ended by the host.");
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      alert("This meeting was ended by the host. All participants have been removed.");
       setIsPostMeeting(true);
     });
 
@@ -1490,11 +1496,16 @@ export default function MeetingRoom({ roomCode, onLeave }: { roomCode: string; o
         onShowHostModal={() => setShowHostModal(true)}
         onLeave={() => { if (onLeave) onLeave(); }}
         onEndSession={() => {
-          if (confirm("End this meeting for everyone?")) {
+          if (confirm("End this meeting for all participants? All members will be immediately removed and the live call will stop.")) {
             socketRef.current?.emit("host_end_meeting", { roomCode });
           }
         }}
-        isOrganizer={participants.find(p => p.id === "you")?.role === "Organizer"}
+        isOrganizer={
+          participants.find(p => p.id === "you")?.role === "Organizer" ||
+          (participants.find(p => p.id === "you")?.role as string) === "Host" ||
+          localStorage.getItem("nexus_role") === "Organizer" ||
+          localStorage.getItem("nexus_role") === "Host"
+        }
       />
 
       {/* --- BACKGROUND EFFECTS SELECTOR MODAL --- */}

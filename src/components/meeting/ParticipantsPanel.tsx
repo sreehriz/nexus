@@ -21,7 +21,8 @@ export default function ParticipantsPanel({
   onKick,
   currentUserId = "you",
 }: ParticipantsPanelProps) {
-  const isOrganizer = participants.find((p) => p.id === currentUserId)?.role === "Organizer";
+  const userRole = participants.find((p) => p.id === currentUserId)?.role || localStorage.getItem("nexus_role");
+  const isOrganizer = userRole === "Organizer" || userRole === "Host";
 
   return (
     <div className="flex flex-col gap-4 text-left h-full">

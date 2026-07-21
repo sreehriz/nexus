@@ -39,8 +39,8 @@ html.light {
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Azonix", sans-serif;
-  --font-panchang: "ROSNOC Panchang", "Panchang", sans-serif;
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-panchang: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
   
   --color-theme-bg: var(--theme-bg);
