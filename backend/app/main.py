@@ -138,7 +138,7 @@ async def test_gemini():
     try:
         # Send a tiny prompt to verify authentication
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.5-flash',
             contents='Say "Gemini API is connected!"',
         )
         return {
@@ -1490,7 +1490,7 @@ async def translate_text(
     if not clean_gemini_key or clean_gemini_key in ("MY_GEMINI_API_KEY", "your-gemini-api-key-here"):
         return {"translatedText": f"[Translated to {target_lang}]: {text}"}
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={clean_gemini_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={clean_gemini_key}"
     prompt = f"Translate the following text into language code '{target_lang}' (ja=Japanese, es=Spanish, de=German, hi=Hindi, en=English). Return ONLY the translated sentence, without comments or surrounding quotes.\n\nText: {text}"
     
     payload = {
@@ -1544,7 +1544,7 @@ async def generate_summary(
             ]
         }
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={clean_gemini_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={clean_gemini_key}"
     prompt = (
         "Analyze the following meeting transcript. Provide a summary of the meeting, "
         "a JSON list of key decisions, and a JSON list of action items with their suggested assignee.\n"
@@ -1858,7 +1858,7 @@ async def memory_search(
     try:
         gemini_client = genai.Client(api_key=clean_gemini_key) if clean_gemini_key else genai.Client()
         response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.5-flash',
             contents=prompt,
             config={"response_mime_type": "application/json"}
         )
