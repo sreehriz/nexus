@@ -57,7 +57,7 @@ app = FastAPI(
 )
 
 # Setup CORS middleware immediately after FastAPI creation, before any routes
-_allowed_origins = [
+origins = [
     "https://sreehriz-nexus.vercel.app",
     "http://localhost:3000",
     "http://localhost:5173",
@@ -65,12 +65,12 @@ _allowed_origins = [
 env_app_url = APP_URL or os.getenv("APP_URL") or "https://sreehriz-nexus.vercel.app"
 if env_app_url:
     clean_app_url = env_app_url.rstrip("/")
-    if clean_app_url not in _allowed_origins:
-        _allowed_origins.append(clean_app_url)
+    if clean_app_url not in origins:
+        origins.append(clean_app_url)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
