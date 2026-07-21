@@ -56,6 +56,26 @@ app = FastAPI(
     description="Production-ready real-time meeting platform with AI features",
 )
 
+# Setup CORS middleware immediately after FastAPI creation, before any routes
+_allowed_origins = [
+    "https://sreehriz-nexus.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
+env_app_url = APP_URL or os.getenv("APP_URL") or "https://sreehriz-nexus.vercel.app"
+if env_app_url:
+    clean_app_url = env_app_url.rstrip("/")
+    if clean_app_url not in _allowed_origins:
+        _allowed_origins.append(clean_app_url)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # ── Health, Version & Status Check Endpoints ─────────────────────────────────
 @app.get("/health")
 @app.head("/health")
@@ -90,21 +110,6 @@ def status_root(db: Session = Depends(get_db)):
         "timestamp": datetime.datetime.utcnow().isoformat()
     }
 
-
-# Setup CORS middleware — allow configured APP_URL
-_allowed_origins = []
-if APP_URL:
-    clean_app_url = APP_URL.rstrip("/")
-    if clean_app_url not in _allowed_origins:
-        _allowed_origins.append(clean_app_url)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Static files for downloads
 public_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "public")
